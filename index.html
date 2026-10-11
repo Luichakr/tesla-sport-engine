@@ -2,66 +2,114 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07080a">
 <title>Sport Engine</title>
 <style>
   :root {
     --bg: #07080a; --panel: #111318; --line: #22262e; --text: #e9edf2; --dim: #7c8594;
     --accent: #ff3b30; --amber: #ffb020; --green: #31d158;
+    --sat: env(safe-area-inset-top, 0px); --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px); --sar: env(safe-area-inset-right, 0px);
+    --ctrl-fs: 16px; --ctrl-pad: 11px 15px; --gap: 10px;
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
-    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; user-select: none; }
-  #app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
-  header, footer { display: flex; gap: 10px; align-items: center; padding: 12px 16px; flex-wrap: wrap; }
-  header { border-bottom: 1px solid var(--line); }
-  footer { border-top: 1px solid var(--line); justify-content: space-between; }
-  .brand { font-weight: 800; letter-spacing: .18em; font-size: 15px; margin-right: auto; }
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; user-select: none;
+    -webkit-user-select: none; }
+  #app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; height: 100dvh; }
+  header { display: flex; gap: var(--gap); align-items: center; flex-wrap: wrap;
+    padding: 10px calc(14px + var(--sar)) 10px calc(14px + var(--sal)); padding-top: calc(10px + var(--sat));
+    border-bottom: 1px solid var(--line); }
+  footer { display: flex; gap: var(--gap); align-items: center; justify-content: space-between; flex-wrap: wrap;
+    padding: 10px calc(14px + var(--sar)) calc(10px + var(--sab)) calc(14px + var(--sal));
+    border-top: 1px solid var(--line); }
+  .brand { font-weight: 800; letter-spacing: .16em; font-size: 15px; margin-right: auto; white-space: nowrap; }
   .brand b { color: var(--accent); }
+  .controls { display: flex; gap: var(--gap); align-items: center; flex-wrap: wrap; }
+  .actions { display: flex; gap: var(--gap); align-items: center; flex-wrap: wrap; }
   button, select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
-    padding: 12px 18px; font-size: 17px; font-weight: 600; cursor: pointer; }
+    padding: var(--ctrl-pad); font-size: var(--ctrl-fs); font-weight: 600; cursor: pointer; line-height: 1.1; }
   button.on { border-color: var(--accent); color: #fff; background: #2a0d0b; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  label.vol { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 15px; }
-  input[type=range] { width: 140px; accent-color: var(--accent); }
+  button.icon { padding: var(--ctrl-pad); }
+  #gearBtn { display: none; }
+  label.vol { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; white-space: nowrap; }
+  input[type=range] { width: 120px; max-width: 32vw; accent-color: var(--accent); }
   #stage { position: relative; min-height: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .status { color: var(--dim); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .status { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
   .status .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--dim); margin-right: 6px; vertical-align: 1px; }
   .status .dot.ok { background: var(--green); } .status .dot.warn { background: var(--amber); }
-  #pedals { display: none; gap: 10px; }
-  #pedals.show { display: flex; }
-  #pedals button { min-width: 130px; padding: 18px; font-size: 18px; touch-action: none; }
+  #pedals { display: none; gap: var(--gap); }
+  #pedals.show { display: flex; flex: 1; justify-content: flex-end; }
+  #pedals button { min-width: 110px; padding: 16px; font-size: 17px; touch-action: none; }
   #gas.down { background: var(--green); color: #000; }
   #brake.down { background: var(--accent); }
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; background: rgba(7,8,10,.86); z-index: 2; text-align: center; padding: 16px; }
+    gap: 16px; background: rgba(7,8,10,.88); z-index: 2; text-align: center; padding: 24px; }
   #overlay.hide { display: none; }
-  #overlay h1 { margin: 0; font-size: clamp(28px, 5vw, 52px); letter-spacing: .08em; }
-  #overlay p { margin: 0; color: var(--dim); max-width: 560px; line-height: 1.5; }
+  #overlay h1 { margin: 0; font-size: clamp(26px, 6vw, 52px); letter-spacing: .08em; }
+  #overlay p { margin: 0; color: var(--dim); max-width: 560px; line-height: 1.5; font-size: clamp(14px, 3.6vw, 17px); }
   #overlay .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
-  #overlay button { font-size: 20px; padding: 18px 30px; }
+  #overlay button { font-size: clamp(17px, 4.5vw, 20px); padding: 16px 28px; }
+
+  /* Tablets & small laptops */
+  @media (max-width: 820px) {
+    :root { --ctrl-fs: 15px; --ctrl-pad: 10px 13px; --gap: 8px; }
+  }
+  /* Phones: tuck the selects/volume behind a ⚙ toggle to keep the gauge big */
+  @media (max-width: 560px) {
+    :root { --ctrl-fs: 14px; --ctrl-pad: 10px 12px; --gap: 7px; }
+    .brand span { display: none; }
+    #gearBtn { display: inline-block; }
+    .controls { order: 10; flex-basis: 100%; display: none; padding-top: 2px; }
+    .controls.open { display: flex; }
+    .controls select, .controls label.vol { flex: 1 1 auto; }
+    .controls select { min-width: 0; }
+    input[type=range] { max-width: none; flex: 1; }
+    #pedals button { min-width: 0; flex: 1; padding: 15px 10px; }
+  }
+  /* Short landscape (phone on a cradle, compact car screens): keep the header to one row */
+  @media (max-height: 480px) and (orientation: landscape) {
+    :root { --ctrl-fs: 13px; --ctrl-pad: 8px 11px; --gap: 7px; }
+    header, footer { padding-top: calc(5px + var(--sat)); padding-bottom: 5px; flex-wrap: nowrap; }
+    footer { padding-bottom: calc(5px + var(--sab)); }
+    #gearBtn { display: inline-block; }
+    .controls { position: absolute; top: calc(100% + 1px); right: 8px; z-index: 3; display: none;
+      flex-direction: column; align-items: stretch; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 10px; width: min(300px, 70vw); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+    .controls.open { display: flex; }
+    header { position: relative; }
+    #pedals button { padding: 9px 14px; min-width: 96px; }
+    .brand { font-size: 13px; }
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="brand"><b>///</b> SPORT ENGINE</div>
-    <select id="engineSel" aria-label="Двигатель">
-      <option value="v8">V8 Muscle</option>
-      <option value="v10">V10 Supercar</option>
-      <option value="i6">I6 Turbo</option>
-    </select>
-    <label class="vol">Громкость <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
-    <select id="popSel" aria-label="Попкорн">
-      <option value="2">Попкорн: агрессивный</option>
-      <option value="1">Попкорн: мягкий</option>
-      <option value="0">Попкорн: выкл</option>
-    </select>
-    <button id="popBtn">💥 Выстрел</button>
-    <button id="modeBtn">Режим: GPS</button>
-    <button id="muteBtn">Звук вкл</button>
-    <button id="fsBtn">⛶</button>
+    <div class="brand"><b>///</b> <span>SPORT ENGINE</span></div>
+    <div class="controls" id="controls">
+      <select id="engineSel" aria-label="Двигатель">
+        <option value="v8">V8 Muscle</option>
+        <option value="v10">V10 Supercar</option>
+        <option value="i6">I6 Turbo</option>
+      </select>
+      <label class="vol">🔊 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
+      <select id="popSel" aria-label="Попкорн">
+        <option value="2">Попкорн: агрессивный</option>
+        <option value="1">Попкорн: мягкий</option>
+        <option value="0">Попкорн: выкл</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button id="popBtn">💥 Выстрел</button>
+      <button id="modeBtn">Режим: GPS</button>
+      <button id="muteBtn">Звук вкл</button>
+      <button id="gearBtn" class="icon" aria-label="Настройки">⚙</button>
+      <button id="fsBtn" class="icon" aria-label="Полный экран">⛶</button>
+    </div>
   </header>
 
   <div id="stage">
@@ -409,11 +457,13 @@
   // ---------- Drawing ----------
   let W = 0, H = 0, dpr = 1;
   function resize() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
-    const r = cv.getBoundingClientRect(); W = r.width; H = r.height;
-    cv.width = W * dpr; cv.height = H * dpr;
+    dpr = Math.min(2.5, window.devicePixelRatio || 1);
+    const r = cv.getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   }
   window.addEventListener('resize', resize);
+  // orientation flips and mobile URL-bar show/hide change the box after a tick
+  window.addEventListener('orientationchange', () => { resize(); setTimeout(resize, 300); });
 
   const START = Math.PI * 0.75, SWEEP = Math.PI * 1.5;
 
@@ -425,13 +475,21 @@
     if (bang > 0) g.translate((Math.random() - 0.5) * 14 * bang, (Math.random() - 0.5) * 14 * bang);
     const E = state.engine;
     const maxRpm = Math.ceil(E.limiter / 1000) * 1000 + 1000;
-    const cx = W / 2, cy = H * 0.56;
-    const R = Math.min(W * 0.36, H * 0.44);
+
+    // --- responsive layout: size the gauge to the available box in any aspect ---
+    const n = 15, lw = Math.max(8, Math.min(26, W * 0.03)), gap = lw * 0.45;
+    const bw = Math.max(9, Math.min(20, Math.min(W, H) * 0.05));   // side-bar width
+    const topReserve = lw * 2.1 + 6;                               // room for shift lights
+    const Rw = (W / 2 - 14 - bw) / 1.04;                           // don't collide with side bars
+    const Rh = (H - 10 - topReserve) / 1.99;                       // gauge + gear digit below
+    const R = Math.max(52, Math.min(Rw, Rh));
+    const used = topReserve + R * 1.99 + 10;
+    const yOff = Math.max(0, (H - used) / 2);
+    const cx = W / 2, cy = yOff + topReserve + R * 1.04;
 
     // shift lights
     const upAt = 3000 + state.throttle * (E.redline - 3300);
-    const n = 15, lw = Math.min(28, W * 0.03), gap = lw * 0.45;
-    const total = n * lw + (n - 1) * gap, x0 = cx - total / 2, ly = Math.max(14, cy - R - lw * 1.9);
+    const total = n * lw + (n - 1) * gap, x0 = cx - total / 2, ly = cy - R * 1.04 - lw * 1.05;
     const frac = Math.max(0, Math.min(1, (state.rpm - (upAt - 2200)) / 2200));
     const blink = state.rpm > E.redline && Math.floor(now / 80) % 2;
     for (let i = 0; i < n; i++) {
@@ -499,9 +557,9 @@
     g.fillStyle = state.gear === 0 ? '#31d158' : '#ffb020';
     g.fillText(state.gear === 0 ? 'N' : state.gear, cx, cy + R * 0.8);
 
-    // side bars: throttle (left), g-force (right)
-    const bh = R * 1.3, bw = Math.max(12, R * 0.06), by = cy - bh / 2;
-    const bx1 = Math.max(16, cx - R * 1.35 - bw), bx2 = Math.min(W - 16 - bw, cx + R * 1.35);
+    // side bars: throttle (left), g-force (right) — flush to the screen edges
+    const bh = Math.min(R * 1.25, H - yOff - topReserve - 24), by = cy - bh / 2;
+    const bx1 = 12, bx2 = W - 12 - bw;
     bar(bx1, by, bw, bh, state.throttle, '#31d158', 'ГАЗ');
     const gForce = state.accel / 3.6 / 9.81;
     bar(bx2, by, bw, bh, Math.min(1, Math.abs(gForce) / 0.8), gForce < 0 ? '#ff3b30' : '#ffb020', (Math.abs(gForce)).toFixed(2) + 'g');
@@ -538,8 +596,9 @@
     g.fillStyle = '#15181e'; roundRect(x, y, w, h, w / 2); g.fill();
     const fh = h * v;
     g.fillStyle = col; roundRect(x, y + h - fh, w, fh, w / 2); g.fill();
-    g.font = `600 14px -apple-system, Roboto, sans-serif`; g.fillStyle = '#7c8594'; g.textAlign = 'center';
-    g.fillText(label, x + w / 2, y + h + 18);
+    g.font = `600 ${Math.max(10, Math.min(14, w * 0.8))}px -apple-system, Roboto, sans-serif`;
+    g.fillStyle = '#7c8594'; g.textAlign = 'center';
+    g.fillText(label, x + w / 2, Math.min(H - 5, y + h + 16));
   }
   function roundRect(x, y, w, h, r) {
     r = Math.min(r, h / 2, w / 2); g.beginPath();
@@ -580,9 +639,15 @@
   $('muteBtn').onclick = () => { state.muted = !state.muted; $('muteBtn').textContent = state.muted ? 'Звук выкл' : 'Звук вкл'; $('muteBtn').classList.toggle('on', state.muted); };
   $('vol').oninput = e => { if (master) master.gain.value = +e.target.value; };
   $('engineSel').onchange = e => { state.engine = ENGINES[e.target.value]; applyEngine(); state.crankUntil = performance.now() + 500; };
+  $('gearBtn').onclick = () => { const c = $('controls').classList.toggle('open'); $('gearBtn').classList.toggle('on', c); setTimeout(resize, 0); };
+  // auto-close the settings drawer after picking an option on phones
+  ['engineSel', 'popSel'].forEach(id => $(id).addEventListener('change', () => {
+    if (window.matchMedia('(max-width: 560px)').matches) { $('controls').classList.remove('open'); $('gearBtn').classList.remove('on'); setTimeout(resize, 0); }
+  }));
   $('fsBtn').onclick = () => {
     const el = document.documentElement;
     if (document.fullscreenElement) document.exitFullscreen?.(); else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+    setTimeout(resize, 150);
   };
 
   function hold(btn, key) {
