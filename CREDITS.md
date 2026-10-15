@@ -9,11 +9,14 @@
 - **Pole Position Production** — BMW M4 2014, Ferrari 488 2016, Mercedes‑AMG C63 2009,
   Nissan 370Z 2012, Honda S2000 2002, а также запуски Ferrari 812 Superfast,
   McLaren 570S, Corvette C6 Z06.
-- **Soundholder** — Lexus LFA 4.8 V10, Porsche Cayenne 4.8 V8, Subaru Impreza GD WRX,
-  Subaru Legacy 2.5 GT (запуск, холостые и 2000 об/мин для Subaru).
+- **Soundholder** — Lexus LFA 4.8 V10, Porsche Cayenne 4.8 V8, Subaru Impreza GD WRX (5000/6000 об/мин).
 
 Изменения: вырезаны участки на постоянных оборотах, на стыке луп сведён
 кросс‑фейдом 60 мс, выровнена громкость (только усиление), 48 кГц / 16 бит FLAC.
+
+## Subaru Impreza STI — холостые и запуск (Freesound)
+- «Subaru Impreza STI idling» — **MilanKovanda**, Freesound #625702, CC‑BY 4.0
+- «subaru impreza start up‑idle‑launch limiter» — **t33kno**, Freesound #369797, CC0
 
 ## Моторы «Симулятор» (`sounds/cars/sim_*`)
 Наборы лупов через каждые 1000 об/мин из **Stunt Rally 3**

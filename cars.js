@@ -290,32 +290,27 @@ window.CARS = [
  {
   "id": "subaru_wrx",
   "brand": "Subaru",
-  "model": "Impreza WRX",
-  "engineName": "EJ оппозитный турбо · реальная запись",
-  "idle": 750,
+  "model": "Impreza WRX STI (GD)",
+  "engineName": "EJ257 2.5 оппозитный турбо · реальная запись",
+  "idle": 900,
   "redline": 7000,
   "limiter": 7200,
   "turbo": 1,
   "sound": {
    "type": "layers",
    "pitch": [
-    0.6,
-    2.0
+    0.5,
+    2.8
    ],
    "layers": [
     {
-     "f": "sounds/cars/subaru_wrx/l700.flac",
-     "rpm": 700,
+     "f": "sounds/cars/subaru_wrx/l900.flac",
+     "rpm": 900,
      "load": "on"
     },
     {
-     "f": "sounds/cars/subaru_wrx/l2000.flac",
-     "rpm": 2000,
-     "load": "on"
-    },
-    {
-     "f": "sounds/cars/subaru_wrx/l5000.flac",
-     "rpm": 5000,
+     "f": "sounds/cars/subaru_wrx/l4740.flac",
+     "rpm": 4740,
      "load": "on"
     },
     {
