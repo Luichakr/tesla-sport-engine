@@ -36,6 +36,12 @@
   #gearBtn { display: none; }
   label.vol { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; white-space: nowrap; }
   input[type=range] { width: 120px; max-width: 32vw; accent-color: var(--accent); }
+  /* engine switch (segmented) */
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; color: var(--dim);
+    padding: var(--ctrl-pad); font-size: var(--ctrl-fs); white-space: nowrap; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.active { background: var(--accent); color: #fff; }
   #stage { position: relative; min-height: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .status { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -67,6 +73,8 @@
     .controls.open { display: flex; }
     .controls select, .controls label.vol { flex: 1 1 auto; }
     .controls select { min-width: 0; }
+    .controls .seg { flex-basis: 100%; }
+    .controls .seg button { flex: 1; }
     input[type=range] { max-width: none; flex: 1; }
     #pedals button { min-width: 0; flex: 1; padding: 15px 10px; }
   }
@@ -91,11 +99,11 @@
   <header>
     <div class="brand"><b>///</b> <span>SPORT ENGINE</span></div>
     <div class="controls" id="controls">
-      <select id="engineSel" aria-label="Двигатель">
-        <option value="v8">V8 Muscle</option>
-        <option value="v10">V10 Supercar</option>
-        <option value="i6">I6 Turbo</option>
-      </select>
+      <div class="seg" id="engineSeg" role="group" aria-label="Двигатель">
+        <button type="button" data-eng="v8" class="active">V8</button>
+        <button type="button" data-eng="sport">Sport</button>
+        <button type="button" data-eng="race">Race</button>
+      </div>
       <label class="vol">🔊 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
       <select id="popSel" aria-label="Попкорн">
         <option value="2">Попкорн: агрессивный</option>
@@ -138,13 +146,14 @@
 (() => {
   'use strict';
 
-  // ---------- Engine presets ----------
-  // pulses: firings per crankshaft revolution (cylinders / 2)
+  // ---------- Engine presets (clean engine loops, pitch-mapped by RPM) ----------
+  // file: a steady, seamless engine loop; its pitch is driven by rate = rateMin..rateMax over the rev range.
   const ENGINES = {
-    v8:  { pulses: 4, idle: 800,  redline: 7000, limiter: 7200, burble: 0.35, drive: 3.2, bright: 1.0, turbo: 0 },
-    v10: { pulses: 5, idle: 1000, redline: 8500, limiter: 8700, burble: 0.12, drive: 2.4, bright: 1.6, turbo: 0 },
-    i6:  { pulses: 3, idle: 750,  redline: 7000, limiter: 7200, burble: 0.08, drive: 2.0, bright: 1.2, turbo: 1 },
+    v8:    { name: 'V8',    file: 'eng_v8',    idle: 820,  redline: 7000, limiter: 7200, rateMin: 0.80, rateMax: 2.15, bright: 1.00, turbo: 0 },
+    sport: { name: 'Sport', file: 'eng_sport', idle: 950,  redline: 7600, limiter: 7800, rateMin: 0.85, rateMax: 2.00, bright: 1.15, turbo: 0 },
+    race:  { name: 'Race',  file: 'eng_race',  idle: 1200, redline: 8800, limiter: 9000, rateMin: 0.82, rateMax: 2.25, bright: 1.40, turbo: 1 },
   };
+  const SOUND_FILES = ['eng_v8', 'eng_sport', 'eng_race', 'startup'];
   // km/h per 1000 rpm in each gear
   const GEARS = [8.5, 14.5, 20.5, 27, 34, 42];
   // pops & bangs tune: dur = volley length (ms), gap = spacing between pops (s), big = chance of a loud bang
@@ -168,22 +177,33 @@
     gas: false, brake: false,
     lastFix: null, fixTime: 0, gpsAcc: null,
     overrunUntil: 0, overrunDur: 1, overrunManual: false, nextPop: 0, crankUntil: 0,
-    popLevel: 2, prevRawAccel: 0,
+    popLevel: 2, prevRawAccel: 0, engineVolAt: 0,
   };
   const fx = []; // visual flames {t, s, big}
 
-  // ---------- Audio ----------
-  let ac, master, popNoise, oscs = [], shaper, lp, engGain, amLfo, amDepth, noiseG, noiseBp, turboOsc, turboG;
+  // ---------- Audio (real engine samples) ----------
+  let ac, master, popNoise, lp, engGain;
+  let voice = null;              // active looping engine voice {loSrc,hiSrc,loGain,hiGain,bus}
+  const buffers = {};           // name -> decoded AudioBuffer
+  let buffersReady = false, buffersLoading = null;
 
-  function makeCurve(k) {
-    const n = 1024, c = new Float32Array(n);
-    for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); }
-    return c;
-  }
   function noiseBuffer(sec) {
     const b = ac.createBuffer(1, ac.sampleRate * sec, ac.sampleRate), d = b.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return b;
+  }
+  const smooth = (x, a, b) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+  function loadBuffers() {
+    if (buffersReady) return Promise.resolve();
+    if (buffersLoading) return buffersLoading;
+    buffersLoading = Promise.all(SOUND_FILES.map(name =>
+      fetch('sounds/' + name + '.mp3')
+        .then(r => r.arrayBuffer())
+        .then(ab => new Promise((res, rej) => ac.decodeAudioData(ab, b => { buffers[name] = b; res(); }, rej)))
+        .catch(() => { /* missing/decode error: that voice stays silent */ })
+    )).then(() => { buffersReady = true; });
+    return buffersLoading;
   }
 
   function initAudio() {
@@ -191,76 +211,60 @@
     ac = new (window.AudioContext || window.webkitAudioContext)();
     master = ac.createGain(); master.gain.value = +$('vol').value;
     const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4;
+    comp.threshold.value = -12; comp.ratio.value = 4; comp.release.value = 0.25;
     master.connect(comp).connect(ac.destination);
     popNoise = noiseBuffer(1);
 
-    const sum = ac.createGain();
-    // fundamental firing, sub-harmonic (burble), 2nd harmonic
-    [['sawtooth', 0.55], ['square', 0.3], ['sawtooth', 0.18], ['triangle', 0.35]].forEach(([type, gv]) => {
-      const o = ac.createOscillator(); o.type = type;
-      const gg = ac.createGain(); gg.gain.value = gv;
-      o.connect(gg).connect(sum); o.start(); oscs.push({ o, gg, base: gv });
-    });
-    shaper = ac.createWaveShaper(); shaper.oversample = '2x';
-    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 1.2;
+    // engine bus: looping sample -> lowpass -> engGain -> master (pure engine, no synth layers)
+    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.8; lp.frequency.value = 1400;
     engGain = ac.createGain(); engGain.gain.value = 0;
-    sum.connect(shaper).connect(lp).connect(engGain).connect(master);
-
-    // uneven-firing amplitude wobble
-    amLfo = ac.createOscillator(); amLfo.type = 'sine';
-    amDepth = ac.createGain(); amDepth.gain.value = 0;
-    amLfo.connect(amDepth).connect(engGain.gain); amLfo.start();
-
-    // exhaust / intake roar
-    const ns = ac.createBufferSource(); ns.buffer = noiseBuffer(2); ns.loop = true;
-    noiseBp = ac.createBiquadFilter(); noiseBp.type = 'bandpass'; noiseBp.Q.value = 0.9;
-    noiseG = ac.createGain(); noiseG.gain.value = 0;
-    ns.connect(noiseBp).connect(noiseG).connect(master); ns.start();
-
-    // turbo whistle
-    turboOsc = ac.createOscillator(); turboOsc.type = 'sine';
-    turboG = ac.createGain(); turboG.gain.value = 0;
-    turboOsc.connect(turboG).connect(master); turboOsc.start();
-
-    applyEngine();
+    lp.connect(engGain).connect(master);
   }
 
-  function applyEngine() {
-    if (!ac) return;
-    shaper.curve = makeCurve(state.engine.drive);
+  // (re)build the looping voice for the current engine
+  function buildVoice() {
+    if (!ac || !buffersReady) return;
+    const E = state.engine;
+    if (voice) { try { voice.src.stop(); } catch (e) {} voice = null; }
+    const buf = buffers[E.file];
+    if (!buf) return;
+    const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+    src.connect(lp);
+    src.start(ac.currentTime + 0.02);
+    voice = { src };
+  }
+
+  function applyEngine() { buildVoice(); }
+
+  // one-shot ignition sound
+  function playStartup() {
+    if (!ac || !buffers.startup) return;
+    const s = ac.createBufferSource(); s.buffer = buffers.startup;
+    const gg = ac.createGain(); gg.gain.value = state.muted ? 0 : 1.0;
+    s.connect(gg).connect(master); s.start();
   }
 
   function setP(p, v, tc = 0.03) { p.setTargetAtTime(v, ac.currentTime, tc); }
 
   function updateAudio() {
-    if (!ac) return;
+    if (!ac || !voice) return;
     const E = state.engine, rpm = Math.max(state.rpm, 1);
-    const f = rpm / 60 * E.pulses;
     const t = state.throttle;
     const shifting = performance.now() < state.shiftUntil;
+    const norm = Math.max(0, Math.min(1, (rpm - E.idle) / (E.redline - E.idle)));
 
-    setP(oscs[0].o.frequency, f);
-    setP(oscs[1].o.frequency, f / 2);
-    setP(oscs[2].o.frequency, f * 2);
-    setP(oscs[3].o.frequency, f / 4);
-    setP(oscs[1].gg.gain, oscs[1].base * (0.4 + E.burble * 2) * (1 - rpm / E.limiter * 0.7));
-    setP(oscs[3].gg.gain, oscs[3].base * (1.2 - rpm / E.limiter));
+    // pitch rises with revs (the real recording keeps its own timbre)
+    const rate = E.rateMin + (E.rateMax - E.rateMin) * Math.pow(norm, 0.92);
+    setP(voice.src.playbackRate, rate, 0.05);
 
-    const load = 0.35 + 0.65 * t;
-    setP(lp.frequency, (300 + rpm * 0.35 * E.bright) * (0.6 + 0.8 * t));
-    const vol = state.muted ? 0 : (shifting ? 0.12 : 0.28 + 0.42 * load);
-    setP(engGain.gain, vol, shifting ? 0.01 : 0.04);
-    setP(amLfo.frequency, f / 4);
-    setP(amDepth.gain, state.muted ? 0 : vol * E.burble * (1.3 - rpm / E.limiter));
+    // hold the engine loop back until the ignition sample has cranked
+    const gate = performance.now() < state.engineVolAt ? 0 : 1;
 
-    setP(noiseBp.frequency, 200 + rpm * 0.25);
-    setP(noiseG.gain, state.muted ? 0 : (0.02 + 0.16 * t) * (rpm / E.limiter + 0.2));
-
-    if (E.turbo) {
-      setP(turboOsc.frequency, 1800 + rpm * 0.9);
-      setP(turboG.gain, state.muted ? 0 : 0.018 * t * Math.min(1, rpm / 3500), 0.25);
-    } else setP(turboG.gain, 0);
+    // tone opens up with throttle and revs
+    setP(lp.frequency, (500 + rpm * 0.6 * E.bright) * (0.55 + 0.6 * t), 0.05);
+    const load = 0.4 + 0.6 * t;
+    const vol = (state.muted ? 0 : (shifting ? 0.3 : 0.6 + 0.4 * load)) * gate;
+    setP(engGain.gain, vol, shifting ? 0.02 : 0.08);
   }
 
   // exhaust crackle / backfire
@@ -558,7 +562,7 @@
     g.fillText(state.gear === 0 ? 'N' : state.gear, cx, cy + R * 0.8);
 
     // side bars: throttle (left), g-force (right) — flush to the screen edges
-    const bh = Math.min(R * 1.25, H - yOff - topReserve - 24), by = cy - bh / 2;
+    const bh = Math.max(30, Math.min(R * 1.25, H - topReserve - 28)), by = cy - bh / 2;
     const bx1 = 12, bx2 = W - 12 - bw;
     bar(bx1, by, bw, bh, state.throttle, '#31d158', 'ГАЗ');
     const gForce = state.accel / 3.6 / 9.81;
@@ -601,7 +605,8 @@
     g.fillText(label, x + w / 2, Math.min(H - 5, y + h + 16));
   }
   function roundRect(x, y, w, h, r) {
-    r = Math.min(r, h / 2, w / 2); g.beginPath();
+    if (w <= 0 || h <= 0) return;
+    r = Math.max(0, Math.min(r, h / 2, w / 2)); g.beginPath();
     g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
     g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
   }
@@ -621,14 +626,22 @@
     else { stopGps(); setStatus('Демо: держите «ГАЗ» (или ↑ / пробел)', 'ok'); }
   }
 
-  function start(mode) {
+  let starting = false;
+  async function start(mode) {
+    if (starting || state.running) return;
+    starting = true;
     initAudio(); ac.resume();
     $('overlay').classList.add('hide');
+    setStatus('Загрузка звука мотора…', 'warn');
+    await loadBuffers();
+    buildVoice();
+    playStartup();                              // real ignition sound
+    state.engineVolAt = performance.now() + 1000; // let the starter crank before the loop fades in
     state.running = true;
-    state.crankUntil = performance.now() + 700;
-    setTimeout(() => pop(0.5), 650);
+    state.crankUntil = performance.now() + 1100; // visual rev blip while the starter catches
     keepAwake();
     setMode(mode);
+    starting = false;
   }
 
   $('startGps').onclick = () => start('gps');
@@ -638,12 +651,17 @@
   $('modeBtn').onclick = () => { if (!state.running) return; setMode(state.mode === 'gps' ? 'demo' : 'gps'); };
   $('muteBtn').onclick = () => { state.muted = !state.muted; $('muteBtn').textContent = state.muted ? 'Звук выкл' : 'Звук вкл'; $('muteBtn').classList.toggle('on', state.muted); };
   $('vol').oninput = e => { if (master) master.gain.value = +e.target.value; };
-  $('engineSel').onchange = e => { state.engine = ENGINES[e.target.value]; applyEngine(); state.crankUntil = performance.now() + 500; };
+  $('engineSeg').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-eng]'); if (!btn) return;
+    [...$('engineSeg').children].forEach(b => b.classList.toggle('active', b === btn));
+    state.engine = ENGINES[btn.dataset.eng];
+    applyEngine();                               // swap looping samples live
+    state.crankUntil = performance.now() + 500;
+    if (window.matchMedia('(max-width: 560px)').matches) closeDrawer();
+  });
+  $('popSel').addEventListener('change', () => { if (window.matchMedia('(max-width: 560px)').matches) closeDrawer(); });
+  function closeDrawer() { $('controls').classList.remove('open'); $('gearBtn').classList.remove('on'); setTimeout(resize, 0); }
   $('gearBtn').onclick = () => { const c = $('controls').classList.toggle('open'); $('gearBtn').classList.toggle('on', c); setTimeout(resize, 0); };
-  // auto-close the settings drawer after picking an option on phones
-  ['engineSel', 'popSel'].forEach(id => $(id).addEventListener('change', () => {
-    if (window.matchMedia('(max-width: 560px)').matches) { $('controls').classList.remove('open'); $('gearBtn').classList.remove('on'); setTimeout(resize, 0); }
-  }));
   $('fsBtn').onclick = () => {
     const el = document.documentElement;
     if (document.fullscreenElement) document.exitFullscreen?.(); else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
