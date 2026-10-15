@@ -110,11 +110,6 @@
   .status { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
   .status .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--dim); margin-right: 6px; vertical-align: 1px; }
   .status .dot.ok { background: var(--green); } .status .dot.warn { background: var(--amber); }
-  #pedals { display: none; gap: var(--gap); }
-  #pedals.show { display: flex; flex: 1; justify-content: flex-end; }
-  #pedals button { min-width: 110px; padding: 16px; font-size: 17px; touch-action: none; }
-  #gas.down { background: var(--green); color: #000; }
-  #brake.down { background: var(--accent); }
   #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 16px; background: rgba(7,8,10,.88); z-index: 2; text-align: center; padding: 24px; }
   #overlay.hide { display: none; }
@@ -139,7 +134,6 @@
     .controls .seg { flex-basis: 100%; }
     .controls .seg button { flex: 1; }
     input[type=range] { max-width: none; flex: 1; }
-    #pedals button { min-width: 0; flex: 1; padding: 15px 10px; }
   }
   /* Short landscape (phone on a cradle, compact car screens): keep the header to one row */
   @media (max-height: 480px) and (orientation: landscape) {
@@ -152,7 +146,6 @@
       border-radius: 12px; padding: 10px; width: min(300px, 70vw); box-shadow: 0 10px 30px rgba(0,0,0,.5); }
     .controls.open { display: flex; }
     header { position: relative; }
-    #pedals button { padding: 9px 14px; min-width: 96px; }
     .brand { font-size: 13px; }
   }
   /* ---- compact one-row header; settings live in the ⚙ panel on every screen size ---- */
@@ -171,6 +164,22 @@
   .clabel { color: var(--dim); font-size: 12px; margin-bottom: -4px; }
   .actions { flex-wrap: wrap; }
   #viewSeg button { padding: 9px 14px; }
+  /* ---- analog demo pedals: finger height = pedal travel ---- */
+  .pedals { position: absolute; right: calc(52px + var(--sar)); bottom: 12px; z-index: 3; display: none; gap: 12px; }
+  .pedals.show { display: flex; }
+  .pedal { position: relative; width: 88px; height: clamp(150px, 36vh, 270px); border-radius: 16px; overflow: hidden;
+    background: rgba(17,19,24,.88) repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), rgba(255,255,255,.10) calc(25% - 1px) 25%);
+    border: 1px solid var(--line); touch-action: none; cursor: ns-resize; -webkit-user-select: none; user-select: none; }
+  .pedal .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0%; }
+  .pedal.gas .fill { background: linear-gradient(to top, #178a3c, #31d158); }
+  .pedal.brake .fill { background: linear-gradient(to top, #a3160d, #ff3b30); }
+  .pedal .pv { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-weight: 800; font-size: 20px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
+  .pedal .pl { position: absolute; bottom: 9px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-shadow: 0 1px 3px #000; }
+  .pedal.active { border-color: #fff; }
+  @media (max-width: 560px) {
+    .pedals { left: calc(12px + var(--sal)); right: calc(12px + var(--sar)); justify-content: space-between; }
+    .pedal { width: calc(50% - 6px); height: 120px; }
+  }
 </style>
 </head>
 <body>
@@ -234,6 +243,12 @@
       </div>
       <div id="tSensors" class="tsensors"></div>
     </section>
+    <div id="pedals" class="pedals">
+      <div class="pedal brake" id="brake" role="slider" aria-label="Тормоз" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="fill"></div><span class="pv">0%</span><span class="pl">ТОРМОЗ</span></div>
+      <div class="pedal gas" id="gas" role="slider" aria-label="Газ" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="fill"></div><span class="pv">0%</span><span class="pl">ГАЗ</span></div>
+    </div>
     <div id="overlay">
       <h1>SPORT ENGINE</h1>
       <p>Звук мотора и спортивная приборка по скорости автомобиля (GPS).<br>
@@ -248,10 +263,6 @@
 
   <footer>
     <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Ожидание</span></div>
-    <div id="pedals">
-      <button id="brake">ТОРМОЗ</button>
-      <button id="gas">ГАЗ</button>
-    </div>
   </footer>
 
   <div id="history" class="sheet" hidden>
@@ -326,7 +337,7 @@
     throttle: 0,       // 0..1 estimated or from pedal
     rpm: 0, gear: 0,   // gear 0 = N
     shiftUntil: 0, lastShift: 0,
-    gas: false, brake: false,
+    gas: false, brake: false, gasAmt: 0, brakeAmt: 0,
     lastFix: null, fixTime: 0, gpsAcc: null,
     overrunUntil: 0, overrunDur: 1, overrunManual: false, nextPop: 0, crankUntil: 0,
     popLevel: 2, popSource: 'synth', prevRawAccel: 0, engineVolAt: 0,
@@ -683,12 +694,16 @@
     if (state.mode === 'demo') {
       // demo drives like the selected Tesla: full pedal = everything it has at this speed
       const v = state.speed / 3.6;
-      let am = state.gas ? EV.amax(v) - EV.res(v) : -(v > 0.5 ? EV.regen * 0.8 : 0) - EV.res(v) * (v > 0.5 ? 1 : 0);
-      if (state.brake) am = -0.9 * G0;
-      if (state.gas && v >= EV.top) am = Math.min(am, 0);
+      pedalsStep(dt);
+      const ga = state.gasAmt, br = state.brakeAmt, moving = v > 0.3 ? 1 : 0;
+      // pedal % of everything this Tesla has at this speed; near-zero pedal = one-pedal regen; brake up to ~0.95 g
+      let am = ga * EV.amax(v) - EV.res(v) * moving;
+      if (ga < 0.08) am -= EV.regen * 0.8 * (1 - ga / 0.08) * moving;
+      am -= br * 0.95 * G0 * moving;
+      if (v >= EV.top) am = Math.min(am, 0);
       state.speed = Math.max(0, state.speed + am * 3.6 * dt);
       state.accel += (am * 3.6 - state.accel) * Math.min(1, dt * 6);
-      state.throttle += ((state.gas ? 1 : 0) - state.throttle) * Math.min(1, dt * 10);
+      state.throttle += (state.gasAmt - state.throttle) * Math.min(1, dt * 10);
       demoGpsStep(dt, now);
     } else {
       // extrapolate between ~1 Hz GPS fixes so the needle moves smoothly
@@ -769,7 +784,7 @@
     if (state.popArmed && state.rpm < 2200) state.popArmed = 0;
 
     let targetRpm;
-    if (state.gear === 0) targetRpm = E.idle + (state.mode === 'demo' && state.gas ? (E.redline - E.idle) * 0.9 : 0);
+    if (state.gear === 0) targetRpm = E.idle + (state.mode === 'demo' ? (E.redline - E.idle) * 0.9 * state.gasAmt : 0);
     else targetRpm = Math.max(E.idle, E.idle * 0.6 + v / gearK(state.gear) * 1000);
     if (now < state.crankUntil) targetRpm = E.idle * 1.9;
     if (state.overrunManual && now < state.overrunUntil) {
@@ -999,7 +1014,7 @@
     $('modeBtn').textContent = 'Режим: ' + (mode === 'gps' ? 'GPS' : 'Демо');
     $('pedals').classList.toggle('show', mode === 'demo');
     if (mode === 'gps') { startGps(); }
-    else { stopGps(); setStatus('Демо: держите «ГАЗ» (или ↑ / пробел)', 'ok'); }
+    else { stopGps(); setStatus('Демо: ведите пальцем по педали — выше = сильнее (или держите ↑ / ↓)', 'ok'); }
   }
 
   // audio watchdog: the car browser can suspend/interrupt Web Audio (nav voice, media, focus changes)
@@ -1142,21 +1157,46 @@
     setTimeout(resize, 150);
   };
 
-  function hold(btn, key) {
-    const on = e => { e.preventDefault(); state[key] = true; btn.classList.add('down'); };
-    const off = () => { state[key] = false; btn.classList.remove('down'); };
-    btn.addEventListener('pointerdown', on);
-    ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, off));
+  // analog pedals: finger height on the pedal = travel (0–100 %), springs back on release.
+  // Keyboard: holding ↑ / Space or ↓ presses the pedal progressively (short tap = partial).
+  const pedal = { gas: { el: $('gas'), touch: false, key: false }, brake: { el: $('brake'), touch: false, key: false } };
+  function setPedal(name, v) {
+    v = Math.max(0, Math.min(1, v));
+    state[name + 'Amt'] = v; state[name] = v > 0.02;
+    const P = pedal[name];
+    P.el.querySelector('.fill').style.height = (v * 100).toFixed(1) + '%';
+    P.el.querySelector('.pv').textContent = Math.round(v * 100) + '%';
+    P.el.setAttribute('aria-valuenow', Math.round(v * 100));
   }
-  hold($('gas'), 'gas'); hold($('brake'), 'brake');
+  for (const name of ['gas', 'brake']) {
+    const P = pedal[name], el = P.el;
+    const fromY = e => { const r = el.getBoundingClientRect(); return 1 - (e.clientY - r.top) / r.height; };
+    el.addEventListener('pointerdown', e => {
+      e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (_) {} P.touch = true; el.classList.add('active');
+      setPedal(name, Math.max(0.05, fromY(e)));
+    });
+    el.addEventListener('pointermove', e => { if (P.touch) setPedal(name, fromY(e)); });
+    const up = () => { P.touch = false; el.classList.remove('active'); };
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+  }
+  // runs every frame in demo: keyboard ramps, and released pedals spring back
+  function pedalsStep(dt) {
+    for (const name of ['gas', 'brake']) {
+      const P = pedal[name];
+      if (P.touch) continue;
+      const cur = state[name + 'Amt'];
+      if (P.key) setPedal(name, cur + dt * 1.2);
+      else if (cur > 0) setPedal(name, cur - dt * 4);
+    }
+  }
   window.addEventListener('keydown', e => {
     if (state.mode !== 'demo') return;
-    if (e.code === 'ArrowUp' || e.code === 'Space') { state.gas = true; e.preventDefault(); }
-    if (e.code === 'ArrowDown') state.brake = true;
+    if (e.code === 'ArrowUp' || e.code === 'Space') { pedal.gas.key = true; e.preventDefault(); }
+    if (e.code === 'ArrowDown') { pedal.brake.key = true; e.preventDefault(); }
   });
   window.addEventListener('keyup', e => {
-    if (e.code === 'ArrowUp' || e.code === 'Space') state.gas = false;
-    if (e.code === 'ArrowDown') state.brake = false;
+    if (e.code === 'ArrowUp' || e.code === 'Space') pedal.gas.key = false;
+    if (e.code === 'ArrowDown') pedal.brake.key = false;
   });
 
   resize();
