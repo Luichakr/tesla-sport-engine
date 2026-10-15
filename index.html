@@ -154,9 +154,9 @@
         <option value="0">Попкорн: выкл</option>
       </select>
       <select id="popSrc" aria-label="Звук хлопков">
+        <option value="synth">Хлопки: синтез</option>
         <option value="real">Хлопки: оригинал</option>
         <option value="mix">Хлопки: микс</option>
-        <option value="synth">Хлопки: синтез</option>
       </select>
     </div>
     <div class="actions">
@@ -279,7 +279,7 @@
     gas: false, brake: false,
     lastFix: null, fixTime: 0, gpsAcc: null,
     overrunUntil: 0, overrunDur: 1, overrunManual: false, nextPop: 0, crankUntil: 0,
-    popLevel: 2, popSource: 'real', prevRawAccel: 0, engineVolAt: 0,
+    popLevel: 2, popSource: 'synth', prevRawAccel: 0, engineVolAt: 0,
     latG: 0, heading: null, gTrail: [], gMax: 0,
   };
   const fx = []; // visual flames {t, s, big}

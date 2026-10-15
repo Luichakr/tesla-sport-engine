@@ -643,5 +643,5 @@ window.CARS = [
   "startup": "sounds/cars/sim_boxer/start.flac"
  }
 ];
-// Real exhaust pops (Audi R8 overrun crackle, crackle-map VW, anti-lag) and backfire bangs
-window.POP_POOL = {"small": ["sounds/pops/small01.flac", "sounds/pops/small02.flac", "sounds/pops/small03.flac", "sounds/pops/small04.flac", "sounds/pops/small05.flac", "sounds/pops/small06.flac", "sounds/pops/small07.flac", "sounds/pops/small08.flac", "sounds/pops/small09.flac", "sounds/pops/small10.flac", "sounds/pops/small11.flac", "sounds/pops/small12.flac", "sounds/pops/small13.flac", "sounds/pops/small14.flac"], "big": ["sounds/pops/big01.flac", "sounds/pops/big02.flac", "sounds/pops/big03.flac"]};
+// Real exhaust pops: dry cracks cut tight around each transient (Audi R8 overrun, anti-lag) + backfire bangs
+window.POP_POOL = {"small": ["sounds/pops/crack01.flac", "sounds/pops/crack02.flac", "sounds/pops/crack03.flac", "sounds/pops/crack04.flac", "sounds/pops/crack05.flac", "sounds/pops/crack06.flac", "sounds/pops/crack07.flac", "sounds/pops/crack08.flac"], "big": ["sounds/pops/bang01.flac", "sounds/pops/bang02.flac", "sounds/pops/bang03.flac"]};

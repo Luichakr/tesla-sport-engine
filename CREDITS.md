@@ -21,12 +21,12 @@
 
 ## Хлопки в выхлоп (`sounds/pops/*`)
 - Audi R8 Idling Reving Backfire — **Jonas_Jocys**, Freesound #457733, CC‑BY 4.0
-- car pass by afterfire crackle tune — **klankbeeld**, Freesound #873008, CC‑BY 4.0
 - Car Antilag No cleanup — **modusmogulus**, Freesound #797835, CC0
 - S012 Engine Backfire — Freesound #385935, CC0
 - backfire.wav — TORCS / Speed Dreams, GPL‑2.0
 
-Изменения: нарезка на отдельные хлопки, нормализация пика, FLAC.
+Изменения: из каждой записи вырезан только сам удар (~90 мс от пика, быстрое затухание),
+срезан низкий гул ниже 150 Гц, нормализация пика, FLAC.
 Синтезированные хлопки (режим «синтез») генерируются в браузере.
 
 ## Запасной звук запуска (`sounds/startup.mp3`)
