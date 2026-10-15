@@ -29,6 +29,8 @@
   const gNow = () => ({ lat: Math.abs(SE.state.latG), lon: SE.state.accel / 3.6 / 9.81 });
 
   let last = null;          // last accepted fix
+  let lastWall = 0;         // device clock when `last` arrived (GPS timestamps may be offset from it)
+  const nowFixTime = () => last ? last.t + (Date.now() - lastWall) : Date.now();
   const sensors = { fixes: 0, nativeSpeed: false, nativeHeading: false, alt: false, acc: null, motion: false, demo: false };
 
   // =====================================================================
@@ -55,12 +57,25 @@
     }
     drag.run = null; drag.t0 = null;
   }
+  const recent = [];                        // last few fixes (for back-dating the launch)
   function dragFix(prev, f, seg) {
-    if (f.kmh < 1) {
-      if (drag.state === 'run') finishRun();
-      drag.state = 'ready'; drag.t0 = null; drag.d = 0; drag.vmax = 0; drag.live = 0;
-    } else if (drag.state === 'ready' && prev && prev.kmh < 1) {
-      drag.state = 'run'; drag.t0 = cross(prev, f, 1); drag.d = 0; drag.vmax = 0; drag.run = { res: {} };
+    recent.push({ t: f.t, kmh: f.kmh, seg }); if (recent.length > 8) recent.shift();
+    if (f.kmh < 1.5) {
+      if (drag.state === 'run') { finishRun(); }
+      drag.state = 'ready'; drag.t0 = null; drag.d = 0; drag.vmax = 0; drag.live = 0; drag.still = f.t; drag.why = '';
+    } else if (drag.state === 'ready' && f.kmh >= 5) {
+      // launch: back-date to the moment speed left ~0 (GPS jitter of 1–3 km/h at rest no longer starts it)
+      let i = recent.length - 1; while (i > 0 && recent[i - 1].kmh >= 1.5) i--;
+      const a = recent[i - 1] || { t: drag.still || f.t, kmh: 0 }, b = recent[i];
+      drag.t0 = a.kmh < 1.5 && b ? a.t + (1.5 - a.kmh) / Math.max(0.1, b.kmh - a.kmh) * (b.t - a.t) : f.t;
+      drag.d = recent.slice(i).reduce((sum, r) => sum + r.seg, 0);
+      drag.state = 'run'; drag.vmax = f.kmh; drag.run = { res: {} }; drag.why = '';
+      // speed splits that were already passed inside the launch window
+      for (let k = i; k < recent.length; k++) {
+        const p = recent[k - 1] || a, q = recent[k];
+        for (const v of SPEEDS) if (drag.run.res['v' + v] == null && p.kmh < v && q.kmh >= v) drag.run.res['v' + v] = (cross(p, q, v) - drag.t0) / 1000;
+      }
+      return;
     }
     if (drag.state === 'run') {
       const r = drag.run.res;
@@ -71,11 +86,12 @@
       for (const D of DISTS) {
         if (r[D.k] == null && drag.d >= D.m) {
           const over = drag.d - D.m, back = seg > 0 ? over / seg : 0;           // interpolate inside the last segment
-          r[D.k] = (f.t - back * (f.t - prev.t) - drag.t0) / 1000; r[D.k + 'v'] = f.kmh; saveBest(D.k, r[D.k]);
+          r[D.k] = (f.t - back * (f.t - (prev ? prev.t : f.t)) - drag.t0) / 1000; r[D.k + 'v'] = f.kmh; saveBest(D.k, r[D.k]);
         }
       }
-      // lifted off / braked → the pull is over
-      if ((f.kmh < drag.vmax * 0.88 && drag.vmax > 20) || drag.live > 120) { finishRun(); drag.state = 'done'; }
+      // a clear lift / brake ends the pull (small GPS wobble does not)
+      if (f.kmh < drag.vmax - Math.max(8, drag.vmax * 0.1)) { finishRun(); drag.state = 'done'; drag.why = 'Заезд завершён: сброс газа'; }
+      else if (drag.live > 120) { finishRun(); drag.state = 'done'; drag.why = 'Заезд завершён'; }
     }
     // rolling 100–200 (any time)
     if (prev && prev.kmh < 100 && f.kmh >= 100) drag.roll.t100 = cross(prev, f, 100);
@@ -91,10 +107,11 @@
   const tr = { line: store.get('trackline', null), laps: [], cur: null, lastSide: null, auto: true };
   function newLap(t) { return { t0: t, dist: 0, vmax: 0, vmin: Infinity, latG: 0, accG: 0, brkG: 0, pts: [] }; }
   function setLine(f) {
-    if (!f || f.heading == null) { SE.setStatus('Нужен курс: начните движение, затем поставьте линию', 'warn'); return false; }
-    tr.line = { lat: f.lat, lon: f.lon, hd: f.heading }; store.set('trackline', tr.line);
-    tr.laps = []; tr.cur = null; tr.lastSide = null;
-    SE.setStatus('Линия старт/финиш установлена — круги считаются при её пересечении', 'ok');
+    if (!f) { SE.setStatus('Нет GPS‑позиции — дождитесь сигнала', 'warn'); return false; }
+    const moving = f.heading != null && f.kmh > 8;
+    tr.line = { lat: f.lat, lon: f.lon, hd: moving ? f.heading : null }; store.set('trackline', tr.line);
+    tr.laps = []; tr.cur = moving ? newLap(f.t) : null; tr.lastSide = null;
+    SE.setStatus(moving ? 'Старт/финиш здесь — круг пошёл' : 'Линия поставлена — поезжайте, направление определится при отъезде', 'ok');
     return true;
   }
   function lapFix(prev, f, seg) {
@@ -108,6 +125,13 @@
       if (!p || seg > 2) c.pts.push([f.lat, f.lon, Math.round(f.kmh)]);
     }
     if (!L || !prev) return;
+    if (L.hd == null) {                                     // set while standing: direction of departure = race direction
+      const e = enu(L, f);
+      if (Math.hypot(e[0], e[1]) > 15 && f.kmh > 5) {
+        L.hd = (Math.atan2(e[0], e[1]) / toR + 360) % 360; store.set('trackline', L);
+        tr.cur = newLap(tr.still || f.t); SE.setStatus('Круг пошёл', 'ok');
+      } else { if (f.kmh < 2) tr.still = f.t; return; }
+    }
     // signed distance along the line's heading: crossing = sign change near the line point
     const h = L.hd * toR, dir = [Math.sin(h), Math.cos(h)];
     const a = enu(L, prev), b = enu(L, f);
@@ -186,7 +210,7 @@
     dragFix(last, f, seg);
     lapFix(last, f, seg);
     tripFix(last, f, seg);
-    last = { lat: f.lat, lon: f.lon, t: f.t, kmh: f.kmh, heading: f.heading };
+    last = { lat: f.lat, lon: f.lon, t: f.t, kmh: f.kmh, heading: f.heading }; lastWall = Date.now();
   });
   window.addEventListener('devicemotion', e => {
     const a = e.acceleration || e.accelerationIncludingGravity;
@@ -220,8 +244,9 @@
     const r = (drag.run || drag.last || { res: {} }).res, b = bestDrag();
     const msg = { idle: 'Остановитесь полностью — таймер встанет на старт',
                   ready: 'Готов! Старт с места — замер начнётся с движением',
-                  run: 'Заезд идёт… не отпускайте газ', done: 'Заезд завершён — остановитесь для нового' }[drag.state];
-    $('dLive').innerHTML = `<div class="dbig">${drag.state === 'run' ? drag.live.toFixed(1) : (drag.state === 'ready' ? '0.0' : '—')}<small> с</small></div>
+                  run: 'Заезд идёт… не отпускайте газ', done: (drag.why || 'Заезд завершён') + ' — остановитесь для нового' }[drag.state];
+    const live = drag.state === 'run' ? Math.max(drag.live, (nowFixTime() - drag.t0) / 1000) : null;
+    $('dLive').innerHTML = `<div class="dbig">${live != null ? live.toFixed(1) : (drag.state === 'ready' ? '0.0' : '—')}<small> с</small></div>
       <div class="dmeta"><b>${Math.round(SE.state.speed)}</b> км/ч · ${fmtKm(drag.d)} · макс ${Math.round(drag.vmax)} км/ч</div>
       <div class="dstate ${drag.state}">${msg}</div>`;
     const cells = [];
@@ -234,12 +259,12 @@
 
   function renderTrack() {
     const c = tr.cur, bl = bestLapSession(), be = bestLapEver();
-    const curT = c && last ? (last.t - c.t0) / 1000 : null;
+    const curT = c ? Math.max(0, (nowFixTime() - c.t0) / 1000) : null;
     const g = gNow();
     let delta = '';
     if (curT != null && bl) { const d = curT - bl.time; delta = (d > 0 ? '+' : '') + d.toFixed(1) + ' с к лучшему'; }
     $('tStats').innerHTML = [
-      card('Текущий круг', c ? fmtLap(curT) : '—', tr.line ? (c ? `${fmtKm(c.dist)} · ${delta || 'первый круг'}` : 'ждём пересечения линии') : 'поставьте линию старт/финиш'),
+      card('Текущий круг', c ? fmtLap(curT) : '—', tr.line ? (c ? `${fmtKm(c.dist)} · ${delta || 'первый круг'}` : (tr.line.hd == null ? 'линия стоит — поезжайте' : 'ждём пересечения линии')) : 'нажмите «Старт/финиш здесь»'),
       card('Лучший круг', bl ? fmtLap(bl.time) : '—', be ? `рекорд трассы ${fmtLap(be)}` : 'сессия', bl ? 'hl' : ''),
       card('Скорость на круге', c ? `${Math.round(c.vmax)} / ${isFinite(c.vmin) ? Math.round(c.vmin) : '—'}` : '—', 'макс / мин, км/ч'),
       card('Перегрузки', `${g.lat.toFixed(2)} g`, c ? `круг: бок ${c.latG.toFixed(2)} · разгон ${c.accG.toFixed(2)} · торм ${c.brkG.toFixed(2)}` : 'боковая сейчас'),
