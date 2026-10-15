@@ -36,6 +36,53 @@
   #gearBtn { display: none; }
   label.vol { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 14px; white-space: nowrap; }
   input[type=range] { width: 120px; max-width: 32vw; accent-color: var(--accent); }
+  /* track mode */
+  #trackView { position: absolute; inset: 0; z-index: 1; background: var(--bg); display: flex; flex-direction: column; gap: 10px;
+    padding: 12px calc(14px + var(--sar)) 10px calc(14px + var(--sal)); }
+  #trackView[hidden] { display: none; }
+  .tstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .tcard { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; display: flex; flex-direction: column; min-width: 0; }
+  .tcard span { color: var(--dim); font-size: 12px; }
+  .tcard b { font-size: 21px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tcard small { color: var(--dim); font-size: 11.5px; line-height: 1.3; }
+  .tcard.hl { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+  .tmap { flex: 1; min-height: 120px; background: #0c0d10; border: 1px solid var(--line); border-radius: 12px; position: relative; overflow: hidden; }
+  .tmap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  #recBtn.on { background: #2a0d0b; border-color: var(--accent); }
+  .tsensors { color: var(--dim); font-size: 12px; }
+  .hlist { max-height: 60vh; overflow-y: auto; padding: 6px 12px; }
+  .hrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .hrow small { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .hact { display: flex; gap: 6px; flex-shrink: 0; }
+  .hact button { padding: 8px 10px; font-size: 13px; }
+  .hempty { color: var(--dim); text-align: center; padding: 30px 0; }
+  @media (max-width: 560px) { .tstats { grid-template-columns: 1fr 1fr; } .tcard b { font-size: 18px; } .tbar button { flex: 1 1 auto; } }
+  /* car picker button + wheel sheet */
+  .carbtn { display: inline-flex; align-items: center; gap: 6px; max-width: 46vw; }
+  .carbtn #carName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .carbtn .chev { color: var(--dim); font-size: .85em; }
+  .tesla-start { max-width: 92vw; }
+  .sheet { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet[hidden] { display: none; }
+  .sheet-card { width: min(560px, 100%); background: #14161b; border: 1px solid var(--line); border-bottom: 0;
+    border-radius: 18px 18px 0 0; padding-bottom: calc(10px + var(--sab)); animation: up .22s ease-out; }
+  @keyframes up { from { transform: translateY(40px); opacity: .4 } to { transform: none; opacity: 1 } }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); font-weight: 700; }
+  button.link { background: none; border: 0; color: var(--dim); padding: 10px 12px; }
+  button.link.strong { color: var(--accent); }
+  .wheel-wrap { position: relative; height: 290px; }
+  .wheel { position: absolute; inset: 0; overflow-y: auto; scroll-snap-type: y mandatory; padding: 116px 0;
+    scrollbar-width: none; perspective: 700px; -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent);
+    mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wi { height: 58px; scroll-snap-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transform-origin: center; transition: color .15s; color: var(--dim); }
+  .wi b { font-size: 19px; color: inherit; font-weight: 700; }
+  .wi small { font-size: 12px; opacity: .8; margin-top: 2px; }
+  .wi.cur { color: #fff; }
+  .wheel-band { position: absolute; left: 12px; right: 12px; top: 116px; height: 58px; border-radius: 12px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); pointer-events: none; }
   /* engine switch (segmented) */
   .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   .seg button { border: 0; border-radius: 0; background: transparent; color: var(--dim);
@@ -99,19 +146,22 @@
   <header>
     <div class="brand"><b>///</b> <span>SPORT ENGINE</span></div>
     <div class="controls" id="controls">
-      <div class="seg" id="engineSeg" role="group" aria-label="Двигатель">
-        <button type="button" data-eng="v8" class="active">V8</button>
-        <button type="button" data-eng="sport">Sport</button>
-        <button type="button" data-eng="race">Race</button>
-      </div>
+      <button id="teslaBtn" class="carbtn" title="Ваша Tesla">⚡ <span id="teslaName">Tesla</span> <span class="chev">▾</span></button>
       <label class="vol">🔊 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.8"></label>
       <select id="popSel" aria-label="Попкорн">
         <option value="2">Попкорн: агрессивный</option>
         <option value="1">Попкорн: мягкий</option>
         <option value="0">Попкорн: выкл</option>
       </select>
+      <select id="popSrc" aria-label="Звук хлопков">
+        <option value="real">Хлопки: оригинал</option>
+        <option value="mix">Хлопки: микс</option>
+        <option value="synth">Хлопки: синтез</option>
+      </select>
     </div>
     <div class="actions">
+      <button id="viewBtn">🏁 Трек</button>
+      <button id="carBtn" class="carbtn" aria-haspopup="dialog"><span id="carName">—</span> <span class="chev">▾</span></button>
       <button id="popBtn">💥 Выстрел</button>
       <button id="modeBtn">Режим: GPS</button>
       <button id="muteBtn">Звук вкл</button>
@@ -122,10 +172,23 @@
 
   <div id="stage">
     <canvas id="cv"></canvas>
+    <section id="trackView" hidden>
+      <div id="tStats" class="tstats"></div>
+      <div class="tmap"><canvas id="routeCv"></canvas></div>
+      <div class="tbar">
+        <button id="recBtn" class="primary">● Записать поездку</button>
+        <button id="liveBtn">Текущая</button>
+        <button id="histBtn">История</button>
+        <button id="gpxBtn">GPX</button>
+        <button id="resetTimers">Сброс замеров</button>
+      </div>
+      <div id="tSensors" class="tsensors"></div>
+    </section>
     <div id="overlay">
       <h1>SPORT ENGINE</h1>
       <p>Звук мотора и спортивная приборка по скорости автомобиля (GPS).<br>
         Нажмите «Старт» и разрешите доступ к геолокации. Для проверки без поездки — «Демо».</p>
+      <button id="teslaBtn2" class="carbtn tesla-start">Моя машина: <b id="teslaName2">Tesla</b> <span class="chev">▾</span></button>
       <div class="row">
         <button class="primary" id="startGps">Старт (GPS)</button>
         <button id="startDemo">Демо</button>
@@ -140,22 +203,61 @@
       <button id="gas">ГАЗ</button>
     </div>
   </footer>
+
+  <div id="history" class="sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-label="История поездок">
+      <div class="sheet-head"><span>История поездок</span><button id="histClose" class="link strong">Готово</button></div>
+      <div id="histList" class="hlist"></div>
+    </div>
+  </div>
+
+  <div id="picker" class="sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-label="Выбор машины">
+      <div class="sheet-head">
+        <button id="pickCancel" class="link">Отмена</button>
+        <span id="pickTitle">Машина</span>
+        <button id="pickDone" class="link strong">Готово</button>
+      </div>
+      <div class="wheel-wrap">
+        <div class="wheel" id="wheel" tabindex="0"></div>
+        <div class="wheel-band" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
+<script src="cars.js"></script>
+<script src="teslas.js"></script>
 <script>
 (() => {
   'use strict';
 
-  // ---------- Engine presets (clean engine loops, pitch-mapped by RPM) ----------
-  // file: a steady, seamless engine loop; its pitch is driven by rate = rateMin..rateMax over the rev range.
-  const ENGINES = {
-    v8:    { name: 'V8',    file: 'eng_v8',    idle: 820,  redline: 7000, limiter: 7200, rateMin: 0.80, rateMax: 2.15, bright: 1.00, turbo: 0 },
-    sport: { name: 'Sport', file: 'eng_sport', idle: 950,  redline: 7600, limiter: 7800, rateMin: 0.85, rateMax: 2.00, bright: 1.15, turbo: 0 },
-    race:  { name: 'Race',  file: 'eng_race',  idle: 1200, redline: 8800, limiter: 9000, rateMin: 0.82, rateMax: 2.25, bright: 1.40, turbo: 1 },
-  };
-  const SOUND_FILES = ['eng_v8', 'eng_sport', 'eng_race', 'startup'];
-  // km/h per 1000 rpm in each gear
-  const GEARS = [8.5, 14.5, 20.5, 27, 34, 42];
+  // ---------- Car catalog: see cars.js (window.CARS) ----------
+  const CARS = window.CARS || [];
+  const carById = id => CARS.find(c => c.id === id) || CARS[0];
+  // ---------- Your Tesla: physics model ----------
+  // From mass / power / 0-100 time we solve the launch (traction-limited) acceleration a0,
+  // then at any speed the most the car can do is min(a0, P/(m·v)) minus rolling + air drag.
+  const G0 = 9.81;
+  const TESLAS = window.TESLAS || [];
+  function evModel(T) {
+    const m = T.mass + 80, Pw = T.kw * 1000 * 0.9;
+    const res = v => (0.011 * m * G0 + 0.6 * T.cda * v * v) / m;            // m/s² of drag at v (m/s)
+    const sim = a0 => { let v = 0, t = 0; while (v < 27.78 && t < 30) { v += (Math.min(a0, Pw / (m * Math.max(v, 0.5))) - res(v)) * 0.01; t += 0.01; } return t; };
+    let lo = 1, hi = 14;
+    for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (sim(mid) > T.t100) lo = mid; else hi = mid; }
+    const a0 = Math.min(hi, 1.3 * G0);
+    return { T, m, Pw, a0, res, top: T.top / 3.6, regen: 0.19 * G0,
+      amax: v => Math.max(0.3, Math.min(a0, Pw / (m * Math.max(v, 0.5)))) };
+  }
+  let EV = evModel(TESLAS[0]);
+  // throttle share (0..1) needed to produce acceleration a (m/s²) at speed v (m/s)
+  const throttleFor = (a, v) => Math.max(0, Math.min(1, (a + EV.res(v)) / EV.amax(v)));
+
+  // Virtual 6-speed box stretched over YOUR Tesla's top speed: km/h at redline per gear.
+  const GEAR_SPREAD = [0.26, 0.40, 0.54, 0.68, 0.84, 1.0];
+  const GEARS = { length: 6 };
+  const gearK = gr => EV.T.top * GEAR_SPREAD[gr - 1] / ((state.engine.redline - state.engine.idle * 0.6) / 1000);
   // pops & bangs tune: dur = volley length (ms), gap = spacing between pops (s), big = chance of a loud bang
   const POPCORN = [
     null,
@@ -167,7 +269,7 @@
   const cv = $('cv'), g = cv.getContext('2d');
 
   const state = {
-    engine: ENGINES.v8, mode: 'gps', running: false, muted: false,
+    engine: CARS[0], mode: 'gps', running: false, muted: false,
     speed: 0,          // km/h shown & used by sim
     targetSpeed: 0,    // last GPS speed
     accel: 0,          // km/h per second (smoothed)
@@ -177,100 +279,208 @@
     gas: false, brake: false,
     lastFix: null, fixTime: 0, gpsAcc: null,
     overrunUntil: 0, overrunDur: 1, overrunManual: false, nextPop: 0, crankUntil: 0,
-    popLevel: 2, prevRawAccel: 0, engineVolAt: 0,
+    popLevel: 2, popSource: 'real', prevRawAccel: 0, engineVolAt: 0,
+    latG: 0, heading: null, gTrail: [], gMax: 0,
   };
   const fx = []; // visual flames {t, s, big}
+  window.SE = { state, tesla: () => EV.T, setStatus: (t, k) => setStatus(t, k) };
 
   // ---------- Audio (real engine samples) ----------
   let ac, master, popNoise, lp, engGain;
-  let voice = null;              // active looping engine voice {loSrc,hiSrc,loGain,hiGain,bus}
-  const buffers = {};           // name -> decoded AudioBuffer
-  let buffersReady = false, buffersLoading = null;
+  let voice = null;               // active engine voice: { layers:[{src,gain,rpm,load}], kind }
+  const buffers = {};             // url -> decoded AudioBuffer (cache across cars)
+  const loading = {};             // url -> Promise
 
   function noiseBuffer(sec) {
     const b = ac.createBuffer(1, ac.sampleRate * sec, ac.sampleRate), d = b.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return b;
   }
-  const smooth = (x, a, b) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-  function loadBuffers() {
-    if (buffersReady) return Promise.resolve();
-    if (buffersLoading) return buffersLoading;
-    buffersLoading = Promise.all(SOUND_FILES.map(name =>
-      fetch('sounds/' + name + '.mp3')
-        .then(r => r.arrayBuffer())
-        .then(ab => new Promise((res, rej) => ac.decodeAudioData(ab, b => { buffers[name] = b; res(); }, rej)))
-        .catch(() => { /* missing/decode error: that voice stays silent */ })
-    )).then(() => { buffersReady = true; });
-    return buffersLoading;
+  function loadBuf(url) {
+    if (!url) return Promise.resolve(null);
+    if (buffers[url]) return Promise.resolve(buffers[url]);
+    if (!loading[url]) {
+      loading[url] = fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(ab => new Promise((res, rej) => ac.decodeAudioData(ab, res, rej)))
+        .then(b => (buffers[url] = b))
+        .catch(() => null);
+    }
+    return loading[url];
   }
+  const carFiles = car => [
+    ...(car.sound.layers || []).map(l => l.f),
+    ...(car.sound.f ? [car.sound.f] : []),
+    car.startup || 'sounds/startup.mp3',
+    ...(car.pops || []),
+  ];
+  function loadCar(car) { return Promise.all(carFiles(car).map(loadBuf)); }
 
   function initAudio() {
     if (ac) return;
     ac = new (window.AudioContext || window.webkitAudioContext)();
     master = ac.createGain(); master.gain.value = +$('vol').value;
     const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -12; comp.ratio.value = 4; comp.release.value = 0.25;
+    comp.threshold.value = -10; comp.ratio.value = 3; comp.release.value = 0.25;
     master.connect(comp).connect(ac.destination);
     popNoise = noiseBuffer(1);
-
-    // engine bus: looping sample -> lowpass -> engGain -> master (pure engine, no synth layers)
-    lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.8; lp.frequency.value = 1400;
     engGain = ac.createGain(); engGain.gain.value = 0;
-    lp.connect(engGain).connect(master);
+    engGain.connect(master);
   }
 
-  // (re)build the looping voice for the current engine
+  // Build the engine voice. Like racing games: every recorded RPM loop plays at once
+  // and we only move the volumes (crossfade by RPM, on-load vs off-load) plus a small
+  // pitch correction between recorded points — so the recordings stay untouched.
   function buildVoice() {
-    if (!ac || !buffersReady) return;
-    const E = state.engine;
-    if (voice) { try { voice.src.stop(); } catch (e) {} voice = null; }
-    const buf = buffers[E.file];
-    if (!buf) return;
-    const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
-    src.connect(lp);
-    src.start(ac.currentTime + 0.02);
-    voice = { src };
+    if (!ac) return;
+    const car = state.engine;
+    if (voice) {
+      voice.layers.forEach(l => { try { l.src.stop(); } catch (e) {} });
+      if (voice.out) { const o = voice.out; o.gain.setTargetAtTime(0, ac.currentTime, 0.03); setTimeout(() => o.disconnect(), 300); }
+    }
+    voice = null;
+    const t0 = ac.currentTime + 0.03;
+    if (car.sound.type === 'ramp') {
+      const buf = buffers[car.sound.f]; if (!buf) return;
+      const out = ac.createGain(); out.connect(engGain);
+      voice = { kind: 'ramp', buf, out, layers: [], next: t0, pos: null };
+      return;
+    }
+    const layers = [];
+    for (const L of car.sound.layers) {
+      const buf = buffers[L.f]; if (!buf) continue;
+      const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+      if (L.loopStart != null) { src.loopStart = L.loopStart; src.loopEnd = L.loopEnd || buf.duration; }
+      const gain = ac.createGain(); gain.gain.value = 0;
+      src.connect(gain).connect(engGain);
+      src.start(t0, Math.random() * buf.duration * 0.5);
+      layers.push({ src, gain, rpm: L.rpm, load: L.load || 'on', vol: L.vol || 1 });
+    }
+    voice = { layers, kind: car.sound.type };
+  }
+  function applyEngine() { buildVoice(); }
+  function loadPopPool() {
+    const pool = window.POP_POOL || { small: [], big: [] };
+    return Promise.all([...pool.small, ...pool.big].map(loadBuf));
   }
 
-  function applyEngine() { buildVoice(); }
-
-  // one-shot ignition sound
   function playStartup() {
-    if (!ac || !buffers.startup) return;
-    const s = ac.createBufferSource(); s.buffer = buffers.startup;
+    const b = buffers[state.engine.startup || 'sounds/startup.mp3'];
+    if (!ac || !b) return;
+    const s = ac.createBufferSource(); s.buffer = b;
     const gg = ac.createGain(); gg.gain.value = state.muted ? 0 : 1.0;
     s.connect(gg).connect(master); s.start();
   }
 
   function setP(p, v, tc = 0.03) { p.setTargetAtTime(v, ac.currentTime, tc); }
 
+  // equal-power weights for a set of layers sorted by rpm
+  function rpmWeights(set, rpm) {
+    const w = new Map();
+    if (!set.length) return w;
+    if (rpm <= set[0].rpm) { w.set(set[0], 1); return w; }
+    const last = set[set.length - 1];
+    if (rpm >= last.rpm) { w.set(last, 1); return w; }
+    for (let i = 0; i < set.length - 1; i++) {
+      const a = set[i], b = set[i + 1];
+      if (rpm >= a.rpm && rpm <= b.rpm) {
+        const x = (rpm - a.rpm) / (b.rpm - a.rpm);
+        w.set(a, Math.cos(x * Math.PI / 2)); w.set(b, Math.sin(x * Math.PI / 2));
+        break;
+      }
+    }
+    return w;
+  }
+
+  // ---- 'ramp' cars: one real rev recording, played back granularly at the spot that matches the rpm ----
+  // map: [[rpm, seconds], ...] for the rising part (on-throttle); mapOff: same for the falling part (optional)
+  function rampPos(map, rpm) {
+    if (rpm <= map[0][0]) return { t: map[0][1], rate: Math.max(0.8, rpm / map[0][0]) };
+    const last = map[map.length - 1];
+    if (rpm >= last[0]) return { t: last[1], rate: Math.min(1.12, rpm / last[0]) };
+    for (let i = 0; i < map.length - 1; i++) {
+      const a = map[i], b = map[i + 1];
+      if (rpm >= a[0] && rpm <= b[0]) { const x = (rpm - a[0]) / (b[0] - a[0]); return { t: a[1] + (b[1] - a[1]) * x, rate: 1 }; }
+    }
+    return { t: last[1], rate: 1 };
+  }
+  let hann = null;
+  function scheduleGrains(car, rpm) {
+    const S = car.sound, G = S.grain || 0.11, hop = G / 2;
+    if (!hann) { hann = new Float32Array(64); for (let i = 0; i < 64; i++) hann[i] = Math.sin(Math.PI * i / 63) ** 2; }
+    const useOff = S.mapOff && state.throttle < 0.12 && rpm > car.idle * 1.3;
+    const p = rampPos(useOff ? S.mapOff : S.map, rpm);
+    if (voice.next < ac.currentTime) voice.next = ac.currentTime + 0.01;
+    while (voice.next < ac.currentTime + 0.12) {
+      const src = ac.createBufferSource(); src.buffer = voice.buf; src.playbackRate.value = p.rate;
+      const g = ac.createGain(); g.gain.value = 0;
+      g.gain.setValueCurveAtTime(hann, voice.next, G);
+      src.connect(g).connect(voice.out);
+      const off = Math.max(0, Math.min(voice.buf.duration - G - 0.01, p.t + (Math.random() - 0.5) * (S.jitter || 0.03)));
+      src.start(voice.next, off, G * p.rate + 0.01);
+      voice.next += hop;
+    }
+  }
+
+  let loadMix = 1; // 1 = on-throttle layers, 0 = off-throttle (decel) layers
   function updateAudio() {
     if (!ac || !voice) return;
-    const E = state.engine, rpm = Math.max(state.rpm, 1);
-    const t = state.throttle;
+    const car = state.engine, rpm = Math.max(state.rpm, 1);
     const shifting = performance.now() < state.shiftUntil;
-    const norm = Math.max(0, Math.min(1, (rpm - E.idle) / (E.redline - E.idle)));
-
-    // pitch rises with revs (the real recording keeps its own timbre)
-    const rate = E.rateMin + (E.rateMax - E.rateMin) * Math.pow(norm, 0.92);
-    setP(voice.src.playbackRate, rate, 0.05);
-
-    // hold the engine loop back until the ignition sample has cranked
     const gate = performance.now() < state.engineVolAt ? 0 : 1;
 
-    // tone opens up with throttle and revs
-    setP(lp.frequency, (500 + rpm * 0.6 * E.bright) * (0.55 + 0.6 * t), 0.05);
-    const load = 0.4 + 0.6 * t;
-    const vol = (state.muted ? 0 : (shifting ? 0.3 : 0.6 + 0.4 * load)) * gate;
+    if (voice.kind === 'ramp') {
+      scheduleGrains(car, rpm);
+    } else if (voice.kind === 'loop') {
+      // single recording: pitch follows revs (older VDrift-style cars)
+      const L = voice.layers[0]; if (!L) return;
+      const norm = Math.max(0, Math.min(1, (rpm - car.idle) / (car.redline - car.idle)));
+      setP(L.src.playbackRate, car.sound.rateMin + (car.sound.rateMax - car.sound.rateMin) * Math.pow(norm, 0.92), 0.05);
+      setP(L.gain.gain, 1, 0.05);
+    } else {
+      loadMix += ((state.throttle > 0.12 ? 1 : 0) - loadMix) * 0.12;
+      const on = voice.layers.filter(l => l.load === 'on').sort((a, b) => a.rpm - b.rpm);
+      let off = voice.layers.filter(l => l.load === 'off').sort((a, b) => a.rpm - b.rpm);
+      const wOn = rpmWeights(on, rpm), wOff = off.length ? rpmWeights(off, rpm) : null;
+      const onAmt = off.length ? Math.sqrt(loadMix) : 1, offAmt = off.length ? Math.sqrt(1 - loadMix) : 0;
+      for (const l of voice.layers) {
+        const w = l.load === 'on' ? (wOn.get(l) || 0) * onAmt : ((wOff && wOff.get(l)) || 0) * offAmt;
+        setP(l.gain.gain, w * l.vol, 0.04);
+        // small pitch correction towards the exact rpm (kept within a natural range)
+        const [pmin, pmax] = car.sound.pitch || [0.7, 1.45];
+        setP(l.src.playbackRate, Math.max(pmin, Math.min(pmax, rpm / l.rpm)), 0.04);
+      }
+    }
+    const load = 0.55 + 0.45 * state.throttle;
+    const vol = (state.muted ? 0 : (shifting ? 0.45 : load)) * gate * (car.gain || 1);
     setP(engGain.gain, vol, shifting ? 0.02 : 0.08);
   }
 
   // exhaust crackle / backfire
   // one exhaust pop scheduled at audio time `when`; big = loud backfire bang
+  // real recorded pops: per-car list, else the shared pool from cars.js
+  function realPopBuf(big) {
+    const pool = window.POP_POOL || { small: [], big: [] };
+    const car = state.engine;
+    let list = (car.pops && car.pops.length) ? car.pops : (big && pool.big.length ? pool.big : pool.small.concat(pool.big));
+    list = list.filter(u => buffers[u]);
+    return list.length ? buffers[list[Math.floor(Math.random() * list.length)]] : null;
+  }
   function popAt(when, strength = 1, big = false) {
     if (!ac || state.muted) return;
+    const mode = state.popSource; // 'synth' | 'real' | 'mix'
+    if (mode === 'real' || (mode === 'mix' && Math.random() < 0.6)) {
+      const b = realPopBuf(big);
+      if (b) {
+        const s = ac.createBufferSource(); s.buffer = b;
+        s.playbackRate.value = 0.93 + Math.random() * 0.14;
+        const gg = ac.createGain(); gg.gain.value = Math.min(1.4, (big ? 1.25 : 0.95) * (0.55 + 0.45 * strength));
+        s.connect(gg).connect(master); s.start(when);
+        const d = Math.max(0, (when - ac.currentTime) * 1000);
+        setTimeout(() => fx.push({ t: performance.now(), s: strength, big }), d);
+        return;
+      }
+    }
     const len = big ? 0.22 : 0.03 + Math.random() * 0.05;
 
     // crack: short burst of filtered noise
@@ -332,6 +542,28 @@
     return 2 * R * Math.asin(Math.sqrt(s));
   }
 
+  function bearing(a, b) {
+    const toR = Math.PI / 180, y = Math.sin((b.longitude - a.longitude) * toR) * Math.cos(b.latitude * toR);
+    const x = Math.cos(a.latitude * toR) * Math.sin(b.latitude * toR) - Math.sin(a.latitude * toR) * Math.cos(b.latitude * toR) * Math.cos((b.longitude - a.longitude) * toR);
+    return (Math.atan2(y, x) / toR + 360) % 360;
+  }
+  // demo: a synthetic GPS track (gentle curves) so G-meter and track mode work without driving
+  const demoGps = { lat: 50.4501, lon: 30.5234, hd: 30, acc: 0 };
+  function demoGpsStep(dt, now) {
+    const v = state.speed / 3.6;
+    const turn = 9 * Math.sin(now / 5200) + 5 * Math.sin(now / 1900);   // deg/s
+    demoGps.hd = (demoGps.hd + turn * dt * Math.min(1, v / 8) + 360) % 360;
+    const d = v * dt, toR = Math.PI / 180;
+    demoGps.lat += d * Math.cos(demoGps.hd * toR) / 111320;
+    demoGps.lon += d * Math.sin(demoGps.hd * toR) / (111320 * Math.cos(demoGps.lat * toR));
+    state.latG += ((v * turn * toR / G0) * (v > 1 ? 1 : 0) - state.latG) * Math.min(1, dt * 4);
+    demoGps.acc += dt;
+    if (demoGps.acc >= 0.1) {
+      demoGps.acc = 0;
+      window.dispatchEvent(new CustomEvent('se:fix', { detail: { t: Date.now(), lat: demoGps.lat, lon: demoGps.lon,
+        alt: 120 + 15 * Math.sin(now / 20000), acc: 3, kmh: state.speed, heading: demoGps.hd, demo: true } }));
+    }
+  }
   function startGps() {
     if (!('geolocation' in navigator)) { setStatus('Геолокация недоступна в этом браузере', 'warn'); return; }
     setStatus('Ищу GPS…', 'warn');
@@ -356,15 +588,32 @@
       if (dt > 0.05 && dt < 5) {
         const a = (kmh - state.targetSpeed) / dt;
         state.accel += (a - state.accel) * Math.min(1, dt * 1.5);
-        // Tesla lift-off = instant regen braking: speed starts dropping right after holding/gaining.
+        // Tesla lift-off = instant regen: the pedal estimate collapses from "pushing" to "nothing".
         // That transition is our "foot off the pedal" signal for the popcorn volley.
-        if (a < -2 && state.prevRawAccel > -0.8 && kmh > 20) triggerOverrun();
-        state.prevRawAccel = a;
+        const thr = throttleFor(a / 3.6, kmh / 3.6);
+        if (thr < 0.06 && state.prevRawAccel > 0.3 && kmh > 20) triggerOverrun();
+        state.prevRawAccel = thr;
       }
       state.targetSpeed = kmh;
       state.fixTime = now;
     }
+    // heading: from GPS if given, else bearing between fixes; yaw rate × speed = lateral G
+    let hd = (c.heading != null && !isNaN(c.heading) && (kmh || 0) > 4) ? c.heading : null;
+    if (hd == null && state.lastFix && (kmh || 0) > 4 && haversine(state.lastFix.coords, c) > 2) hd = bearing(state.lastFix.coords, c);
+    if (hd != null) {
+      if (state.heading != null && state.lastFix) {
+        const dtf = (pos.timestamp - state.lastFix.timestamp) / 1000;
+        if (dtf > 0.05 && dtf < 4) {
+          const dh = ((hd - state.heading + 540) % 360) - 180;          // -180..180
+          const lat = (kmh / 3.6) * (dh * Math.PI / 180 / dtf) / G0;
+          state.latG += (Math.max(-1.5, Math.min(1.5, lat)) - state.latG) * 0.6;
+        }
+      }
+      state.heading = hd;
+    } else state.latG *= 0.7;
     state.lastFix = pos;
+    window.dispatchEvent(new CustomEvent('se:fix', { detail: { t: pos.timestamp, lat: c.latitude, lon: c.longitude,
+      alt: c.altitude, acc: c.accuracy, kmh, heading: state.heading, nativeSpeed: c.speed != null, nativeHeading: c.heading != null } }));
     setStatus(`GPS ±${Math.round(c.accuracy)} м · ${kmh === null ? '—' : Math.round(kmh) + ' км/ч'}`, c.accuracy < 30 ? 'ok' : 'warn');
   }
 
@@ -380,22 +629,31 @@
     const E = state.engine;
 
     if (state.mode === 'demo') {
-      const top = 280;
-      let a = state.gas ? 22 * (1 - state.speed / top) * (state.gear <= 1 ? 1 : 1.3 / Math.sqrt(state.gear)) : -1.8 - state.speed * 0.012;
-      if (state.brake) a = -35;
-      if (now < state.shiftUntil) a = Math.min(a, 0);
-      state.speed = Math.max(0, state.speed + a * dt);
-      state.accel += (a - state.accel) * Math.min(1, dt * 6);
+      // demo drives like the selected Tesla: full pedal = everything it has at this speed
+      const v = state.speed / 3.6;
+      let am = state.gas ? EV.amax(v) - EV.res(v) : -(v > 0.5 ? EV.regen * 0.8 : 0) - EV.res(v) * (v > 0.5 ? 1 : 0);
+      if (state.brake) am = -0.9 * G0;
+      if (state.gas && v >= EV.top) am = Math.min(am, 0);
+      state.speed = Math.max(0, state.speed + am * 3.6 * dt);
+      state.accel += (am * 3.6 - state.accel) * Math.min(1, dt * 6);
       state.throttle += ((state.gas ? 1 : 0) - state.throttle) * Math.min(1, dt * 10);
+      demoGpsStep(dt, now);
     } else {
       // extrapolate between ~1 Hz GPS fixes so the needle moves smoothly
       const since = (now - state.fixTime) / 1000;
       const predicted = state.fixTime ? Math.max(0, state.targetSpeed + state.accel * Math.min(since, 1.2)) : 0;
       state.speed += (predicted - state.speed) * Math.min(1, dt * 4);
-      // Model 3: ~20 km/h/s at full power. Treat ~9 km/h/s as full throttle.
-      const tt = Math.max(0, Math.min(1, state.accel / 9));
+      // pedal estimate relative to what THIS Tesla can do at this speed
+      const tt = throttleFor(state.accel / 3.6, state.speed / 3.6);
       state.throttle += (tt - state.throttle) * Math.min(1, dt * 3);
       if (since > 4) state.accel *= 0.9; // stale GPS
+    }
+
+    // G trail for the friction-circle widget
+    if (!state._gt || now - state._gt > 50) {
+      state._gt = now;
+      state.gTrail.push([state.latG, state.accel / 3.6 / G0]);
+      if (state.gTrail.length > 90) state.gTrail.shift();
     }
 
     // gearbox
@@ -403,7 +661,7 @@
     if (v < 2 && state.throttle < 0.1) state.gear = 0;
     else if (state.gear === 0) state.gear = 1;
     if (state.gear > 0 && now > state.shiftUntil + 250) {
-      const rpmIn = gr => E.idle * 0.6 + v / GEARS[gr - 1] * 1000;
+      const rpmIn = gr => E.idle * 0.6 + v / gearK(gr) * 1000;
       const upAt = 3000 + state.throttle * (E.redline - 3300);
       const holdGear = now < state.overrunUntil && rpmIn(state.gear) < E.redline; // keep rpm up while crackling
       if (state.gear < GEARS.length && rpmIn(state.gear) > upAt && !holdGear) {
@@ -420,7 +678,7 @@
 
     let targetRpm;
     if (state.gear === 0) targetRpm = E.idle + (state.mode === 'demo' && state.gas ? (E.redline - E.idle) * 0.9 : 0);
-    else targetRpm = Math.max(E.idle, E.idle * 0.6 + v / GEARS[state.gear - 1] * 1000);
+    else targetRpm = Math.max(E.idle, E.idle * 0.6 + v / gearK(state.gear) * 1000);
     if (now < state.crankUntil) targetRpm = E.idle * 1.9;
     if (state.overrunManual && now < state.overrunUntil) {
       // parked show: rev up, then let it crackle while rpm falls
@@ -433,7 +691,7 @@
     state.rpm += (targetRpm - state.rpm) * Math.min(1, dt * rate);
 
     // demo: releasing the gas pedal at high rpm starts the popcorn
-    if (state.mode === 'demo' && state._pt > 0.4 && state.throttle <= 0.4 && state.rpm > 2500) triggerOverrun();
+    if (state._pt > 0.4 && state.throttle <= 0.4 && state.rpm > 2500) triggerOverrun();
     state._pt = state.throttle;
 
     // popcorn volley: schedule pops slightly ahead on the audio clock (tight, irregular rhythm)
@@ -568,7 +826,36 @@
     const gForce = state.accel / 3.6 / 9.81;
     bar(bx2, by, bw, bh, Math.min(1, Math.abs(gForce) / 0.8), gForce < 0 ? '#ff3b30' : '#ffb020', (Math.abs(gForce)).toFixed(2) + 'g');
 
+    // G-meter (friction circle) in the free corner left of the gauge
+    const gr = Math.min(78, W * 0.085, H * 0.16);
+    const gx = bx1 + bw + 22 + gr, gy = H - gr - 26;
+    if (gr > 34 && gx + gr + 10 < cx - R * 1.04) drawGMeter(gx, gy, gr);
+
     drawFlames(now, bang);
+  }
+
+  function drawGMeter(x, y, r) {
+    const scale = r / 1.2;                         // 1.2 g at the rim
+    g.save();
+    g.fillStyle = 'rgba(15,17,22,.85)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = '#2a2f38'; g.lineWidth = 1;
+    for (const k of [0.5, 1.0]) { g.beginPath(); g.arc(x, y, k * scale, 0, Math.PI * 2); g.stroke(); }
+    g.beginPath(); g.moveTo(x - r, y); g.lineTo(x + r, y); g.moveTo(x, y - r); g.lineTo(x, y + r); g.stroke();
+    const tr = state.gTrail;
+    tr.forEach(([lx, ly], i) => {
+      g.fillStyle = `rgba(255,176,32,${(i / tr.length) * 0.5})`;
+      g.beginPath(); g.arc(x + lx * scale, y - ly * scale, 2, 0, Math.PI * 2); g.fill();
+    });
+    const cur = tr[tr.length - 1] || [0, 0], mag = Math.hypot(cur[0], cur[1]);
+    state.gMax = Math.max(state.gMax * 0.9995, mag);
+    g.fillStyle = '#ff3b30'; g.shadowColor = '#ff3b30'; g.shadowBlur = 10;
+    g.beginPath(); g.arc(x + cur[0] * scale, y - cur[1] * scale, 5, 0, Math.PI * 2); g.fill();
+    g.shadowBlur = 0;
+    g.fillStyle = '#e9edf2'; g.font = `700 ${Math.max(11, r * 0.2)}px -apple-system, Roboto, sans-serif`;
+    g.textAlign = 'center'; g.fillText(mag.toFixed(2) + ' g', x, y + r + 14);
+    g.fillStyle = '#7c8594'; g.font = `600 ${Math.max(9, r * 0.13)}px -apple-system, Roboto, sans-serif`;
+    g.fillText('0.5', x + 0.5 * scale + 9, y - 3); g.fillText('1.0', x + scale - 9, y - 3);
+    g.restore();
   }
 
   // exhaust flames from two "tailpipes" at the bottom edge
@@ -633,7 +920,7 @@
     initAudio(); ac.resume();
     $('overlay').classList.add('hide');
     setStatus('Загрузка звука мотора…', 'warn');
-    await loadBuffers();
+    await Promise.all([loadCar(state.engine), loadPopPool()]);
     buildVoice();
     playStartup();                              // real ignition sound
     state.engineVolAt = performance.now() + 1000; // let the starter crank before the loop fades in
@@ -651,14 +938,93 @@
   $('modeBtn').onclick = () => { if (!state.running) return; setMode(state.mode === 'gps' ? 'demo' : 'gps'); };
   $('muteBtn').onclick = () => { state.muted = !state.muted; $('muteBtn').textContent = state.muted ? 'Звук выкл' : 'Звук вкл'; $('muteBtn').classList.toggle('on', state.muted); };
   $('vol').oninput = e => { if (master) master.gain.value = +e.target.value; };
-  $('engineSeg').addEventListener('click', e => {
-    const btn = e.target.closest('button[data-eng]'); if (!btn) return;
-    [...$('engineSeg').children].forEach(b => b.classList.toggle('active', b === btn));
-    state.engine = ENGINES[btn.dataset.eng];
-    applyEngine();                               // swap looping samples live
-    state.crankUntil = performance.now() + 500;
-    if (window.matchMedia('(max-width: 560px)').matches) closeDrawer();
+  // ---------- wheel picker (like an iOS year picker), shared by sound-car and Tesla choice ----------
+  const ITEM_H = 58;
+  const wheel = $('wheel');
+  let pickIdx = 0, pickCfg = null, items = [];
+  function styleWheel() {
+    const center = wheel.scrollTop / ITEM_H;
+    pickIdx = Math.max(0, Math.min(items.length - 1, Math.round(center)));
+    items.forEach((el, i) => {
+      const d = i - center, ad = Math.min(3, Math.abs(d));
+      el.style.transform = `rotateX(${-d * 17}deg) scale(${1 - ad * 0.05})`;
+      el.style.opacity = String(1 - ad * 0.27);
+      el.classList.toggle('cur', i === pickIdx);
+    });
+  }
+  let wheelRaf = 0;
+  wheel.addEventListener('scroll', () => { cancelAnimationFrame(wheelRaf); wheelRaf = requestAnimationFrame(styleWheel); });
+  wheel.addEventListener('click', e => {
+    const it = e.target.closest('.wi'); if (!it) return;
+    const i = +it.dataset.i;
+    if (i === pickIdx) applyPick(); else wheel.scrollTo({ top: i * ITEM_H, behavior: 'smooth' });
   });
+  wheel.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      wheel.scrollTo({ top: (pickIdx + (e.key === 'ArrowDown' ? 1 : -1)) * ITEM_H, behavior: 'smooth' });
+    } else if (e.key === 'Enter') applyPick();
+    else if (e.key === 'Escape') closePicker();
+  });
+  // cfg: { title, list, current, title1(item), title2(item), apply(item) }
+  function openPicker(cfg) {
+    pickCfg = cfg;
+    $('pickTitle').textContent = cfg.title;
+    wheel.innerHTML = cfg.list.map((c, i) =>
+      `<div class="wi" data-i="${i}"><b>${cfg.title1(c)}</b><small>${cfg.title2(c) || ''}</small></div>`).join('');
+    items = [...wheel.children];
+    $('picker').hidden = false;
+    wheel.scrollTop = Math.max(0, cfg.list.indexOf(cfg.current)) * ITEM_H; styleWheel();
+    wheel.focus({ preventScroll: true });
+  }
+  function closePicker() { $('picker').hidden = true; }
+  function applyPick() { const c = pickCfg && pickCfg.list[pickIdx]; closePicker(); if (c) pickCfg.apply(c); }
+  $('pickDone').onclick = applyPick;
+  $('pickCancel').onclick = closePicker;
+  $('picker').addEventListener('click', e => { if (e.target === $('picker')) closePicker(); });
+  const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  // sound car
+  const carLabel = c => c.brand + ' ' + c.model;
+  function setCarLabel() { $('carName').textContent = carLabel(state.engine); }
+  async function selectCar(car) {
+    if (car === state.engine) return;
+    state.engine = car; setCarLabel(); store.set('car', car.id);
+    if (!ac) return;                              // not started yet: loads on Start
+    setStatus('Загрузка звука: ' + carLabel(car) + '…', 'warn');
+    await Promise.all([loadCar(car), loadPopPool()]);
+    if (state.engine !== car) return;             // picked another car meanwhile
+    buildVoice();
+    state.crankUntil = performance.now() + 500;
+    setStatus(carLabel(car), 'ok');
+  }
+  $('carBtn').onclick = () => openPicker({ title: 'Звук мотора', list: CARS, current: state.engine,
+    title1: carLabel, title2: c => c.engineName, apply: selectCar });
+  { const saved = store.get('car'); if (saved) state.engine = carById(saved); }
+  setCarLabel();
+
+  // your Tesla
+  const teslaLabel = T => T.name + ' · ' + T.trim.split(' · ')[0];
+  function setTesla(T) {
+    EV = evModel(T); store.set('tesla', T.id);
+    const txt = teslaLabel(T);
+    $('teslaName').textContent = txt; $('teslaName2').textContent = txt;
+    state.gear = Math.min(state.gear, 6);
+  }
+  const pickTesla = () => openPicker({ title: 'Ваша Tesla', list: TESLAS, current: EV.T,
+    title1: T => T.name + ' ' + T.trim.split(' · ')[0],
+    title2: T => `${T.trim.split(' · ')[1] || ''}${T.trim.includes(' · ') ? ' · ' : ''}0–100 за ${T.t100} с · ${T.kw} кВт · ${T.top} км/ч`,
+    apply: setTesla });
+  $('teslaBtn').onclick = pickTesla; $('teslaBtn2').onclick = pickTesla;
+  setTesla(TESLAS.find(T => T.id === store.get('tesla')) || TESLAS[0]);
+  $('viewBtn').onclick = () => {
+    const tv = $('trackView'), show = tv.hidden;
+    tv.hidden = !show;
+    $('viewBtn').textContent = show ? '⏱ Приборка' : '🏁 Трек';
+    if (show && window.SE_TRACK) window.SE_TRACK.render();
+  };
+  $('popSrc').onchange = e => { state.popSource = e.target.value; };
   $('popSel').addEventListener('change', () => { if (window.matchMedia('(max-width: 560px)').matches) closeDrawer(); });
   function closeDrawer() { $('controls').classList.remove('open'); $('gearBtn').classList.remove('on'); setTimeout(resize, 0); }
   $('gearBtn').onclick = () => { const c = $('controls').classList.toggle('open'); $('gearBtn').classList.toggle('on', c); setTimeout(resize, 0); };
@@ -689,5 +1055,6 @@
   requestAnimationFrame(step);
 })();
 </script>
+<script src="track.js"></script>
 </body>
 </html>
