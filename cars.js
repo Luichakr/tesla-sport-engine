@@ -291,18 +291,23 @@ window.CARS = [
   "id": "subaru_wrx",
   "brand": "Subaru",
   "model": "Impreza WRX",
-  "engineName": "EJ20 2.0 оппозитный турбо · реальная запись",
-  "idle": 800,
+  "engineName": "EJ оппозитный турбо · реальная запись",
+  "idle": 750,
   "redline": 7000,
   "limiter": 7200,
   "turbo": 1,
   "sound": {
    "type": "layers",
    "pitch": [
-    0.5,
-    1.8
+    0.6,
+    2.0
    ],
    "layers": [
+    {
+     "f": "sounds/cars/subaru_wrx/l700.flac",
+     "rpm": 700,
+     "load": "on"
+    },
     {
      "f": "sounds/cars/subaru_wrx/l2000.flac",
      "rpm": 2000,
@@ -645,3 +650,5 @@ window.CARS = [
 ];
 // Real exhaust pops: dry cracks cut tight around each transient (Audi R8 overrun, anti-lag) + backfire bangs
 window.POP_POOL = {"small": ["sounds/pops/crack01.flac", "sounds/pops/crack02.flac", "sounds/pops/crack03.flac", "sounds/pops/crack04.flac", "sounds/pops/crack05.flac", "sounds/pops/crack06.flac", "sounds/pops/crack07.flac", "sounds/pops/crack08.flac"], "big": ["sounds/pops/bang01.flac", "sounds/pops/bang02.flac", "sounds/pops/bang03.flac"]};
+// Turbo compressor-surge flutter pulses ("stu-tu-tu"), re-sequenced live into a decaying train
+window.FLUTTER = ["sounds/turbo/flutter1.flac", "sounds/turbo/flutter2.flac", "sounds/turbo/flutter3.flac", "sounds/turbo/flutter4.flac"];

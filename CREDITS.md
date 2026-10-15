@@ -9,7 +9,8 @@
 - **Pole Position Production** — BMW M4 2014, Ferrari 488 2016, Mercedes‑AMG C63 2009,
   Nissan 370Z 2012, Honda S2000 2002, а также запуски Ferrari 812 Superfast,
   McLaren 570S, Corvette C6 Z06.
-- **Soundholder** — Lexus LFA 4.8 V10, Porsche Cayenne 4.8 V8, Subaru Impreza GD WRX.
+- **Soundholder** — Lexus LFA 4.8 V10, Porsche Cayenne 4.8 V8, Subaru Impreza GD WRX,
+  Subaru Legacy 2.5 GT (запуск, холостые и 2000 об/мин для Subaru).
 
 Изменения: вырезаны участки на постоянных оборотах, на стыке луп сведён
 кросс‑фейдом 60 мс, выровнена громкость (только усиление), 48 кГц / 16 бит FLAC.
@@ -28,6 +29,11 @@
 Изменения: из каждой записи вырезан только сам удар (~90 мс от пика, быстрое затухание),
 срезан низкий гул ниже 150 Гц, нормализация пика, FLAC.
 Синтезированные хлопки (режим «синтез») генерируются в браузере.
+
+## Флаттер турбины (`sounds/turbo/*`)
+Импульсы помпажа из `default_wastegate_flutter.wav` проекта **Rigs of Rods**
+(https://github.com/RigsOfRods/rigs-of-rods), GPL‑3.0. В приложении импульсы
+собираются в замедляющуюся серию, финальный «тууу» синтезируется.
 
 ## Запасной звук запуска (`sounds/startup.mp3`)
 «Open Corsa E model 2014 engine startup sound» — **MKFI**, Wikimedia Commons, Public Domain.

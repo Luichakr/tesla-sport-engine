@@ -295,8 +295,8 @@
   </div>
 </div>
 
-<script src="cars.js"></script>
-<script src="teslas.js"></script>
+<script src="cars.js?v=202610160035"></script>
+<script src="teslas.js?v=202610160035"></script>
 <script>
 (() => {
   'use strict';
@@ -436,7 +436,7 @@
   function applyEngine() { buildVoice(); }
   function loadPopPool() {
     const pool = window.POP_POOL || { small: [], big: [] };
-    return Promise.all([...pool.small, ...pool.big].map(loadBuf));
+    return Promise.all([...pool.small, ...pool.big, ...(window.FLUTTER || [])].map(loadBuf));
   }
 
   function playStartup() {
@@ -599,16 +599,38 @@
     blowOff();
   }
 
-  function blowOff() {
+  // Turbo flutter (compressor surge, "stu-tu-tu-tuuu"): real pulses re-sequenced into a slowing,
+  // fading train, ending in a falling whoosh. Fires on throttle close for turbo engines.
+  let lastFlutter = 0;
+  function blowOff(strength = 1) {
     if (!ac || state.muted || !state.engine.turbo) return;
-    const now = ac.currentTime;
-    const src = ac.createBufferSource(); src.buffer = noiseBuffer(0.5);
-    const hp = ac.createBiquadFilter(); hp.type = 'bandpass'; hp.Q.value = 2;
-    hp.frequency.setValueAtTime(3500, now); hp.frequency.exponentialRampToValueAtTime(900, now + 0.4);
+    const nowMs = performance.now(); if (nowMs - lastFlutter < 700) return; lastFlutter = nowMs;
+    const bufs = (window.FLUTTER || []).map(u => buffers[u]).filter(Boolean);
+    const t0 = ac.currentTime + 0.02;
+    let t = t0, iv = 0.062 + Math.random() * 0.02, g = 0.9 * strength, rate = 1.06 + Math.random() * 0.06;
+    const n = 6 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n && bufs.length; i++) {
+      const s = ac.createBufferSource(); s.buffer = bufs[Math.floor(Math.random() * bufs.length)];
+      s.playbackRate.value = rate;
+      const gg = ac.createGain(); gg.gain.value = g;
+      s.connect(gg).connect(exhBus); s.start(t);
+      t += iv; iv *= 1.13; g *= 0.84; rate *= 0.975;
+    }
+    // the drawn-out "tuuu": band-passed air whoosh falling in pitch, still faintly chopped
+    const dur = 0.55 + Math.random() * 0.25, ts = bufs.length ? t - iv * 0.6 : t0;
+    const src = ac.createBufferSource(); src.buffer = popNoise; src.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4;
+    bp.frequency.setValueAtTime(1500, ts); bp.frequency.exponentialRampToValueAtTime(420, ts + dur);
     const gg = ac.createGain();
-    gg.gain.setValueAtTime(0.25, now); gg.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-    src.connect(hp).connect(gg).connect(exhBus); src.start(now); src.stop(now + 0.5);
+    gg.gain.setValueAtTime(0.0001, ts); gg.gain.linearRampToValueAtTime(0.32 * strength, ts + 0.04);
+    gg.gain.exponentialRampToValueAtTime(0.001, ts + dur);
+    const chop = ac.createOscillator(); chop.frequency.setValueAtTime(11, ts); chop.frequency.linearRampToValueAtTime(6, ts + dur);
+    const depth = ac.createGain(); depth.gain.value = 0.12 * strength;
+    chop.connect(depth).connect(gg.gain);
+    src.connect(bp).connect(gg).connect(exhBus);
+    src.start(ts); src.stop(ts + dur + 0.05); chop.start(ts); chop.stop(ts + dur + 0.05);
   }
+
 
   // ---------- GPS ----------
   let watchId = null;
@@ -796,6 +818,9 @@
       state.popArmed = 0; state.loadT = 0;
     }
     if (state.popArmed && state.rpm < 2200) state.popArmed = 0;
+    // turbo: boost builds while on throttle above ~1800 rpm; snapping the pedal shut makes it flutter
+    state.boostT = (state.throttle > 0.35 && state.rpm > 1800) ? Math.min(1.5, (state.boostT || 0) + dt) : Math.max(0, (state.boostT || 0) - dt * 0.5);
+    if (E.turbo && state.boostT > 0.4 && state.throttle < 0.15) { blowOff(Math.min(1, 0.5 + state.boostT / 2)); state.boostT = 0; }
 
     let targetRpm;
     if (state.gear === 0) targetRpm = E.idle + (state.mode === 'demo' ? (E.redline - E.idle) * 0.9 * state.gasAmt : 0);
@@ -1227,6 +1252,6 @@
   requestAnimationFrame(step);
 })();
 </script>
-<script src="track.js"></script>
+<script src="track.js?v=202610160035"></script>
 </body>
 </html>
